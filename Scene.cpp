@@ -165,7 +165,7 @@ void Scene::draw(Scene::Camera const *camera) const {
 	assert(camera && "Must have a camera to draw scene from.");
 
     glm::mat4 shear_z = glm::mat4(
-            1.0f, 0.0f, 0.0f, 0.0f,
+            1.25f, 0.0f, 0.0f, 0.0f,
             0.0f, 1.0f, 0.0f, 0.0f,
             0.0f, 1.0f, 1.0f, 0.0f,
             0.0f, 0.0f, 0.0f, 1.0f

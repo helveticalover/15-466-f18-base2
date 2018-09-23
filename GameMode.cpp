@@ -32,8 +32,13 @@ Load< GLuint > meshes_for_vertex_color_program(LoadTagDefault, [](){
 
 Scene::Transform *paddle_transform = nullptr;
 Scene::Transform *ball_transform = nullptr;
-
 Scene::Transform *wolf_transform = nullptr;
+Scene::Object *wolfplayer_object = nullptr;
+
+Game::AnimalMesh wolf;
+Game::AnimalMesh sheep;
+Game::AnimalMesh pig;
+Game::AnimalMesh cow;
 
 Scene::Camera *camera = nullptr;
 
@@ -53,36 +58,41 @@ Load< Scene > scene(LoadTagDefault, [](){
 		obj->vao = *meshes_for_vertex_color_program;
 		obj->start = mesh.start;
 		obj->count = mesh.count;
-	});
-
-	//look up paddle and ball transforms:
-	for (Scene::Transform *t = ret->first_transform; t != nullptr; t = t->alloc_next) {
-//		if (t->name == "Paddle") {
-//			if (paddle_transform) throw std::runtime_error("Multiple 'Paddle' transforms in scene.");
-//			paddle_transform = t;
-//		}
-//		if (t->name == "Ball") {
-//			if (ball_transform) throw std::runtime_error("Multiple 'Ball' transforms in scene.");
-//			ball_transform = t;
-//		}
 
 		if (t->name == "Wolf") {
+		    wolfplayer_object = obj;
+		}
+	});
+
+	for (Scene::Transform *t = ret->first_transform; t != nullptr; t = t->alloc_next) {
+		if (t->name == "Wolf") {
 			if (wolf_transform) throw std::runtime_error("Multiple 'Wolf' transforms in scene.");
-
-//			Scene::Transform *n = ret->new_transform();
-//			n->position = t->position;
-//			t->position = glm::vec3(0.0f, 0.0f, 0.0f);
-//			t->set_parent(n);
-//			wolf_transform = n;
             wolf_transform = t;
-
-			std::cout << glm::to_string(t->position) << std::endl;
-			std::cout << glm::to_string(t->rotation) << std::endl;
+            wolf.mesh_scale = t->scale;
+		} else if (t->name == "Sheep") {
+			sheep.mesh_scale = t->scale;
+		} else if (t->name == "Pig") {
+			pig.mesh_scale = t->scale;
+		} else if (t->name == "Cow") {
+			cow.mesh_scale = t->scale;
 		}
 	}
-//	if (!paddle_transform) throw std::runtime_error("No 'Paddle' transform in scene.");
-//	if (!ball_transform) throw std::runtime_error("No 'Ball' transform in scene.");
 	if (!wolf_transform) throw std::runtime_error("No 'Wolf' transform in scene.");
+
+	//look up animal meshes:
+	MeshBuffer::Mesh const &wolf_mesh = meshes->lookup("Wolf");
+	MeshBuffer::Mesh const &sheep_mesh = meshes->lookup("Sheep");
+	MeshBuffer::Mesh const &pig_mesh = meshes->lookup("Pig");
+	MeshBuffer::Mesh const &cow_mesh = meshes->lookup("Cow");
+
+	wolf.mesh_start = wolf_mesh.start;
+	wolf.mesh_count = wolf_mesh.count;
+	sheep.mesh_start = sheep_mesh.start;
+	sheep.mesh_count = sheep_mesh.count;
+	pig.mesh_start = pig_mesh.start;
+	pig.mesh_count = pig_mesh.count;
+	cow.mesh_start = cow_mesh.start;
+	cow.mesh_count = cow_mesh.count;
 
 	paddle_transform = ret->new_transform();
 	ball_transform = ret->new_transform();
@@ -101,6 +111,11 @@ Load< Scene > scene(LoadTagDefault, [](){
 GameMode::GameMode(Client &client_) : client(client_) {
 	client.connection.send_raw("h", 1); //send a 'hello' to the server
 
+	state.animal_meshes.emplace_back(wolf);
+	state.animal_meshes.emplace_back(sheep);
+	state.animal_meshes.emplace_back(pig);
+	state.animal_meshes.emplace_back(cow);
+
 	bool joined_team = false;
 	while(!joined_team) {
         client.poll([&](Connection *c, Connection::Event evt) {
@@ -113,7 +128,7 @@ GameMode::GameMode(Client &client_) : client(client_) {
                     c->recv_buffer.erase(c->recv_buffer.begin(),
                                                         c->recv_buffer.begin() + 1);
                     std::cout << "JOINED AS WOLF" << std::endl;
-                    state.player = Game::PlayerType::WOLF;
+                    state.player = Game::PlayerType::WOLFPLAYER;
                     joined_team = true;
                     break;
                 case 'f':
@@ -146,7 +161,7 @@ bool GameMode::handle_event(SDL_Event const &evt, glm::uvec2 const &window_size)
 	}
 
 	switch (state.player){
-		case Game::PlayerType::WOLF:
+		case Game::PlayerType::WOLFPLAYER:
 			if (evt.type == SDL_KEYDOWN || evt.type == SDL_KEYUP) {
 				if (evt.key.keysym.scancode == SDL_SCANCODE_W) {
 					state.wolf_controls.go_up = (evt.type == SDL_KEYDOWN);
@@ -162,6 +177,17 @@ bool GameMode::handle_event(SDL_Event const &evt, glm::uvec2 const &window_size)
 					return true;
 				}
 			}
+
+			if (evt.type == SDL_KEYDOWN && evt.key.keysym.scancode == SDL_SCANCODE_SPACE && state.wolf_state.disguises_left) {
+				Game::AnimalMesh mesh_info = state.update_disguise();
+				wolfplayer_object->start = mesh_info.mesh_start;
+				wolfplayer_object->count = mesh_info.mesh_count;
+				wolfplayer_object->transform->scale = mesh_info.mesh_scale;
+                if (client.connection) {
+                    client.connection.send_raw("d", 1);
+                }
+				return true;
+			}
 			break;
 		case Game::PlayerType::FARMER:
 			break;
@@ -170,14 +196,6 @@ bool GameMode::handle_event(SDL_Event const &evt, glm::uvec2 const &window_size)
 		default:
 			std::cerr << "Unknown player type in GameMode::handle_event." << std::endl;
 	}
-
-
-//	if (evt.type == SDL_MOUSEMOTION) {
-//		state.paddle.x = (evt.motion.x - 0.5f * window_size.x) / (0.5f * window_size.x) * Game::FrameWidth;
-//		state.paddle.x = std::max(state.paddle.x, -0.5f * Game::FrameWidth + 0.5f * Game::PaddleWidth);
-//		state.paddle.x = std::min(state.paddle.x,  0.5f * Game::FrameWidth - 0.5f * Game::PaddleWidth);
-//	}
-
 	return false;
 }
 
@@ -185,18 +203,20 @@ void GameMode::update(float elapsed) {
 	bool update = state.update(elapsed);
 
 	if (client.connection) {
-		//send game state to server:
+		//send own game state and predicted game state to server:
         switch(state.player) {
-        	case Game::PlayerType::WOLF:
-				client.connection.send_raw("wp", 2);
-				client.connection.send_raw(&state.wolf_state.position, sizeof(glm::vec3));
-				client.connection.send_raw("wr", 2);
-				client.connection.send_raw(&state.wolf_state.rotation, sizeof(glm::quat));
+        	case Game::PlayerType::WOLFPLAYER:
+        		if (update) {	// Send actual wolf state
+					client.connection.send_raw("ws", 2);
+					client.connection.send_raw(&state.wolf_state.position, sizeof(glm::vec2));
+					client.connection.send_raw(&state.wolf_state.face_left, sizeof(bool));
+        		}
 				break;
-        	case Game::PlayerType::FARMER:
-        		break;
-        	case Game::PlayerType::SPECTATOR:
-        		break;
+        	case Game::PlayerType::FARMER:	// Send local wolf state
+                client.connection.send_raw("fw", 2);
+                client.connection.send_raw(&state.wolf_state.position, sizeof(glm::vec2));
+                client.connection.send_raw(&state.wolf_state.face_left, sizeof(bool));
+                break;
         	default:
         		std::cerr << "Unknown player type in GameMode::update." << std::endl;
         }
@@ -204,37 +224,30 @@ void GameMode::update(float elapsed) {
 
 	client.poll([&](Connection *c, Connection::Event event){
 		if (event == Connection::OnOpen) {
-			//probably won't get this.
 		} else if (event == Connection::OnClose) {
 			std::cerr << "Lost connection to server." << std::endl;
 			exit(0);
 		} else { assert(event == Connection::OnRecv);
             switch (state.player) {
-                case Game::PlayerType::WOLF:
+                case Game::PlayerType::WOLFPLAYER:
                     break;
                 case Game::PlayerType::FARMER:
-                    assert(c->recv_buffer[0] == 'w');
-                    switch(c->recv_buffer[1]) {
-                        case 'p':	// ------------------------------- wolf position
-                            if (c->recv_buffer.size() < 2 + sizeof(glm::vec3)) {
-                                return; //wait for more data
-                            } else {
-                                memcpy(&state.wolf_state.position, c->recv_buffer.data() + 2, sizeof(glm::vec3));
-                                c->recv_buffer.erase(c->recv_buffer.begin(), c->recv_buffer.begin() + 2 + sizeof(glm::vec3));
-                                std::cout << glm::to_string(state.wolf_state.position) << std::endl;
-                            }
+                    switch (c->recv_buffer[0]) {
+                        case 'w':	// Update wolf state
+                            if (c->recv_buffer.size() < 1 + sizeof(glm::vec2) + sizeof(bool)) return;
+                            memcpy(&state.wolf_state.position, c->recv_buffer.data() + 1, sizeof(glm::vec2));
+                            c->recv_buffer.erase(c->recv_buffer.begin(), c->recv_buffer.begin() + 1 + sizeof(glm::vec2));
+                            memcpy(&state.wolf_state.face_left, c->recv_buffer.data(), sizeof(bool));
+                            c->recv_buffer.erase(c->recv_buffer.begin(), c->recv_buffer.begin() + sizeof(bool));
                             break;
-                        case 'r':	// ------------------------------ wolf rotation
-                            if (c->recv_buffer.size() < 2 + sizeof(glm::quat)) {
-                                return; //wait for more data
-                            } else {
-                                memcpy(&state.wolf_state.rotation, c->recv_buffer.data() + 2, sizeof(glm::quat));
-                                c->recv_buffer.erase(c->recv_buffer.begin(), c->recv_buffer.begin() + 2 + sizeof(glm::quat));
-                            }
-                            break;
-                        default:
-                            std::cerr << "Unknown wolf message from client" << std::endl;
-                            break;
+                        case 'd':	// Update wolf disguise
+                            std::cout << "Update disguise" << std::endl;
+							Game::AnimalMesh mesh_info = state.update_disguise();
+							wolfplayer_object->start = mesh_info.mesh_start;
+							wolfplayer_object->count = mesh_info.mesh_count;
+							wolfplayer_object->transform->scale = mesh_info.mesh_scale;
+                            c->recv_buffer.erase(c->recv_buffer.begin(), c->recv_buffer.begin() + 1);
+                        	break;
                     }
                     break;
                 case Game::PlayerType::SPECTATOR:
@@ -252,8 +265,9 @@ void GameMode::update(float elapsed) {
 	paddle_transform->position.x = state.paddle.x;
 	paddle_transform->position.y = state.paddle.y;
 
-	wolf_transform->position = state.wolf_state.position;
-	wolf_transform->rotation = state.wolf_state.rotation;
+	wolf_transform->position.x = state.wolf_state.position.x;
+	wolf_transform->position.y = state.wolf_state.position.y;
+	wolf_transform->rotation = state.wolf_state.face_left ? state.left_rotation : state.right_rotation;
 }
 
 void GameMode::draw(glm::uvec2 const &drawable_size) {

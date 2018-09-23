@@ -1,0 +1,17 @@
+Client -> Server:
+---------------------------
+Wolf:
+    w[s] - own state (position, rotation)
+    w[f] - local farmer's state (position)
+    [d] - update wolf disguise
+Farmer:
+    f[s] - own state (position)
+    f[w] - local wolf's state (position, rotation)
+
+Server -> Client:
+----------------------------
+Wolf:
+    [f] - actual farmer state (position)
+Farmer:
+    [w] - actual wolf state (position, rotation)
+    [d] - update wolf disguise

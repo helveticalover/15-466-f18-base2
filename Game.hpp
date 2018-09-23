@@ -1,12 +1,15 @@
 #pragma once
 
+#include "GL.hpp"
+
 #include <glm/glm.hpp>
 #include <glm/gtc/quaternion.hpp>
+#include <map>
 
 #include "Connection.hpp"
 
 struct Game {
-    enum PlayerType { WOLF, FARMER, SPECTATOR };
+    enum PlayerType { WOLFPLAYER, FARMER, SPECTATOR };
     PlayerType player = SPECTATOR;
 
     struct {
@@ -16,15 +19,28 @@ struct Game {
         bool go_down = false;
     } wolf_controls;
 
-    static constexpr const float max_velocity = 0.1f;
+    static constexpr const float max_velocity = 0.05f;
     static constexpr const float acceleration = 0.75f;
     static constexpr const float deceleration = 0.75f;
+    const glm::quat left_rotation = glm::angleAxis(glm::radians(-90.0f), glm::vec3(0,0,1)) *
+            glm::angleAxis(glm::radians(90.0f), glm::vec3(1,0,0));
+    const glm::quat right_rotation = glm::angleAxis(glm::radians(90.0f), glm::vec3(0,0,1)) *
+            glm::angleAxis(glm::radians(90.0f), glm::vec3(1,0,0));
+
+    struct AnimalMesh {
+        GLuint mesh_start;
+        GLuint mesh_count;
+        glm::vec3 mesh_scale;
+    };
+    std::vector< AnimalMesh > animal_meshes;
 
     struct {
         float x_velocity = 0.0f;
         float y_velocity = 0.0f;
-        glm::quat rotation = glm::quat();
-        glm::vec3 position = glm::vec3(0.0f, 0.0f, 0.0f);
+        glm::vec2 position = glm::vec2(0.0f, 0.0f);
+        bool face_left = true;
+        uint8_t disguise = 0;
+        uint32_t disguises_left = 100;
     } wolf_state;
 
 	glm::vec2 paddle = glm::vec2(0.0f,-3.0f);
@@ -32,6 +48,7 @@ struct Game {
 	glm::vec2 ball_velocity = glm::vec2(0.0f,-2.0f);
 
 	bool update(float time);
+	AnimalMesh update_disguise();
 
 	static constexpr const float FrameWidth = 10.0f;
 	static constexpr const float FrameHeight = 8.0f;
