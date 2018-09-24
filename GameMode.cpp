@@ -223,20 +223,12 @@ void GameMode::update(float elapsed) {
 					client.connection.send_raw(&state.wolf_state.face_left, sizeof(bool));
 					client.connection.send_raw(&state.wolf_state.disguise, sizeof(uint8_t));
         		}
-        		// ----------------------------------- send local farmer state for synchronization
-                client.connection.send_raw("wf", 2);
-                client.connection.send_raw(&state.farmer_state.position, sizeof(glm::vec2));
 				break;
         	case Game::PlayerType::FARMER:			// FARMER
         	    if (update) {	// ------------------- send actual farmer state
                     client.connection.send_raw("fs", 2);
                     client.connection.send_raw(&state.farmer_state.position, sizeof(glm::vec2));
         	    }
-        	    // ----------------------------------- send local wolf state for synchronization
-                client.connection.send_raw("fw", 2);
-                client.connection.send_raw(&state.wolf_state.position, sizeof(glm::vec2));
-                client.connection.send_raw(&state.wolf_state.face_left, sizeof(bool));
-                client.connection.send_raw(&state.wolf_state.disguise, sizeof(uint8_t));
                 break;
         	default:
         		std::cerr << "Unknown player type in GameMode::update." << std::endl;
@@ -250,38 +242,32 @@ void GameMode::update(float elapsed) {
 			std::cerr << "Lost connection to server." << std::endl;
 			exit(0);
 		} else { assert(event == Connection::OnRecv);
-            switch (state.player) {
-                case Game::PlayerType::WOLFPLAYER:		// WOLF
-                    switch (c->recv_buffer[0]) {
-                        case 'f':
-                        	// --------------------------- update local farmer state
-                            if (c->recv_buffer.size() < 1 + sizeof(glm::vec2) + sizeof(bool)) return;
+			switch (state.player) {
+				case Game::PlayerType::WOLFPLAYER:		// WOLF
+					assert (c->recv_buffer[0] == 'f');
+					// --------------------------- update local farmer state
+					while (c->recv_buffer.size() >= 1 + sizeof(glm::vec2)) {
+                        memcpy(&state.farmer_state.position, c->recv_buffer.data() + 1, sizeof(glm::vec2));
+                        c->recv_buffer.erase(c->recv_buffer.begin(), c->recv_buffer.begin() + 1 + sizeof(glm::vec2));
+					}
+					break;
+				case Game::PlayerType::FARMER:			// FARMER
+					assert (c->recv_buffer[0] = 'w');
+					// --------------------------- update local wolf state
+					while (c->recv_buffer.size() >= 1 + sizeof(glm::vec2) + sizeof(bool) + sizeof(uint8_t)) {
+                        memcpy(&state.wolf_state.position, c->recv_buffer.data() + 1, sizeof(glm::vec2));
+                        c->recv_buffer.erase(c->recv_buffer.begin(), c->recv_buffer.begin() + 1 + sizeof(glm::vec2));
 
-                            memcpy(&state.farmer_state.position, c->recv_buffer.data() + 1, sizeof(glm::vec2));
-                            c->recv_buffer.erase(c->recv_buffer.begin(), c->recv_buffer.begin() + 1 + sizeof(glm::vec2));
-                            break;
-                    }
-                    break;
-                case Game::PlayerType::FARMER:			// FARMER
-                    switch (c->recv_buffer[0]) {
-                    	case 'w':
-                    		// --------------------------- update local wolf state
-                            if (c->recv_buffer.size() < 1 + sizeof(glm::vec2) + sizeof(bool)) return;
+                        memcpy(&state.wolf_state.face_left, c->recv_buffer.data(), sizeof(bool));
+                        c->recv_buffer.erase(c->recv_buffer.begin(), c->recv_buffer.begin() + sizeof(bool));
 
-                            memcpy(&state.wolf_state.position, c->recv_buffer.data() + 1, sizeof(glm::vec2));
-                            c->recv_buffer.erase(c->recv_buffer.begin(), c->recv_buffer.begin() + 1 + sizeof(glm::vec2));
-
-                            memcpy(&state.wolf_state.face_left, c->recv_buffer.data(), sizeof(bool));
-                            c->recv_buffer.erase(c->recv_buffer.begin(), c->recv_buffer.begin() + sizeof(bool));
-
-                            memcpy(&state.wolf_state.disguise, c->recv_buffer.data(), sizeof(uint8_t));
-                            c->recv_buffer.erase(c->recv_buffer.begin(), c->recv_buffer.begin() + sizeof(uint8_t));
-                            break;
-                    }
-                    break;
-                default:
-                    break;
-            }
+                        memcpy(&state.wolf_state.disguise, c->recv_buffer.data(), sizeof(uint8_t));
+                        c->recv_buffer.erase(c->recv_buffer.begin(), c->recv_buffer.begin() + sizeof(uint8_t));
+					}
+					break;
+				default:
+					break;
+			}
 		}
 	});
 

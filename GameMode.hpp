@@ -34,5 +34,6 @@ struct GameMode : public Mode {
 	Game state;
 
 	//------ networking ------
-	Client &client; //client object; manages connection to server.
+	Client &
+	client; //client object; manages connection to server.
 };
