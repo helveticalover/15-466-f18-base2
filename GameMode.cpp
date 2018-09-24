@@ -216,21 +216,23 @@ void GameMode::update(float elapsed) {
 	if (client.connection) {
 		//send own game state and predicted game state to server:
         switch(state.player) {
-        	case Game::PlayerType::WOLFPLAYER:
-        		if (update) {
+        	case Game::PlayerType::WOLFPLAYER:		// WOLF
+        		if (update) {	// ------------------- send actual wolf state
 					client.connection.send_raw("ws", 2);
 					client.connection.send_raw(&state.wolf_state.position, sizeof(glm::vec2));
 					client.connection.send_raw(&state.wolf_state.face_left, sizeof(bool));
 					client.connection.send_raw(&state.wolf_state.disguise, sizeof(uint8_t));
         		}
+        		// ----------------------------------- send local farmer state for synchronization
                 client.connection.send_raw("wf", 2);
                 client.connection.send_raw(&state.farmer_state.position, sizeof(glm::vec2));
 				break;
-        	case Game::PlayerType::FARMER:
-        	    if (update) {
+        	case Game::PlayerType::FARMER:			// FARMER
+        	    if (update) {	// ------------------- send actual farmer state
                     client.connection.send_raw("fs", 2);
                     client.connection.send_raw(&state.farmer_state.position, sizeof(glm::vec2));
         	    }
+        	    // ----------------------------------- send local wolf state for synchronization
                 client.connection.send_raw("fw", 2);
                 client.connection.send_raw(&state.wolf_state.position, sizeof(glm::vec2));
                 client.connection.send_raw(&state.wolf_state.face_left, sizeof(bool));
@@ -241,6 +243,7 @@ void GameMode::update(float elapsed) {
         }
 	}
 
+	// Update game state if receive from server
 	client.poll([&](Connection *c, Connection::Event event){
 		if (event == Connection::OnOpen) {
 		} else if (event == Connection::OnClose) {
@@ -248,9 +251,10 @@ void GameMode::update(float elapsed) {
 			exit(0);
 		} else { assert(event == Connection::OnRecv);
             switch (state.player) {
-                case Game::PlayerType::WOLFPLAYER:
+                case Game::PlayerType::WOLFPLAYER:		// WOLF
                     switch (c->recv_buffer[0]) {
                         case 'f':
+                        	// --------------------------- update local farmer state
                             if (c->recv_buffer.size() < 1 + sizeof(glm::vec2) + sizeof(bool)) return;
 
                             memcpy(&state.farmer_state.position, c->recv_buffer.data() + 1, sizeof(glm::vec2));
@@ -258,9 +262,10 @@ void GameMode::update(float elapsed) {
                             break;
                     }
                     break;
-                case Game::PlayerType::FARMER:
+                case Game::PlayerType::FARMER:			// FARMER
                     switch (c->recv_buffer[0]) {
-                        case 'w':
+                    	case 'w':
+                    		// --------------------------- update local wolf state
                             if (c->recv_buffer.size() < 1 + sizeof(glm::vec2) + sizeof(bool)) return;
 
                             memcpy(&state.wolf_state.position, c->recv_buffer.data() + 1, sizeof(glm::vec2));
@@ -273,8 +278,6 @@ void GameMode::update(float elapsed) {
                             c->recv_buffer.erase(c->recv_buffer.begin(), c->recv_buffer.begin() + sizeof(uint8_t));
                             break;
                     }
-                    break;
-                case Game::PlayerType::SPECTATOR:
                     break;
                 default:
                     break;

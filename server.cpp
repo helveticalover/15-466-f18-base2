@@ -61,10 +61,11 @@ int main(int argc, char **argv) {
                         c->recv_buffer.erase(c->recv_buffer.begin(), c->recv_buffer.begin() + 1);
                         std::cout << c << ": Got hello." << std::endl;
 				        break;
-				    case 'w':
+				    case 'w':                                   // WOLF CLIENT
                         if (c->recv_buffer.size() < 2) return;
                         switch(c->recv_buffer[1]) {
-                            case 's':	// ------------------------------- wolf position
+                            case 's':
+                                // ------------------------------- get wolf's actual state
                                 if (c->recv_buffer.size() < 2 + sizeof(glm::vec2) + sizeof(bool) + sizeof(uint8_t)) return;
 
                                 memcpy(&globalState.wolf_state.position, c->recv_buffer.data() + 2, sizeof(glm::vec2));
@@ -78,6 +79,7 @@ int main(int argc, char **argv) {
 
 								break;
                             case 'f':
+                                // ------------------------------ get wolf's local farmer state to check if wolf needs update
                                 if (c->recv_buffer.size() < 2 + sizeof(glm::vec2)) return;
 
                                 memcpy(&farmer_position, c->recv_buffer.data() + 2, sizeof(glm::vec2));
@@ -90,10 +92,11 @@ int main(int argc, char **argv) {
                                 break;
                         }
 				        break;
-				    case 'f':
+				    case 'f':                                   // FARMER CLIENT
                         if (c->recv_buffer.size() < 2) return;
                         switch(c->recv_buffer[1]) {
                             case 's':
+                                // ------------------------------- get farmer's actual state
                                 if (c->recv_buffer.size() < 2 + sizeof(glm::vec2)) return;
 
                                 memcpy(&globalState.farmer_state.position, c->recv_buffer.data() + 2, sizeof(glm::vec2));
@@ -101,6 +104,7 @@ int main(int argc, char **argv) {
 
                                 break;
                             case 'w':
+                                // --------------- get farmer's local wolf state to check if farmer needs update
                                 if (c->recv_buffer.size() < 2 + sizeof(glm::vec2) + sizeof(bool) + sizeof(uint8_t)) return;
 
                                 memcpy(&wolf_position, c->recv_buffer.data() + 2, sizeof(glm::vec2));
@@ -128,25 +132,18 @@ int main(int argc, char **argv) {
 			}
 		}, 0.01);
 
-		// -------------------------- UPDATE CLIENT GAME STATES
+		// -------------------------- UPDATE CLIENT STATES
 
-		// farmer position, animals
 		if (wolf && update_wolf) {
             wolf->send_raw("f", 1);
             wolf->send_raw(&globalState.farmer_state.position, sizeof(glm::vec2));
 		}
 
-        // wolf position, wolf disguise, animals
 		if (farmer && update_farmer) {
             farmer->send_raw("w", 1);
             farmer->send_raw(&globalState.wolf_state.position, sizeof(glm::vec2));
             farmer->send_raw(&globalState.wolf_state.face_left, sizeof(bool));
             farmer->send_raw(&globalState.wolf_state.disguise, sizeof(uint8_t));
-		}
-
-		//wolf position, farmer position, animals
-		if (spectators.size()) {
-
 		}
 
 		//every second or so, dump the current paddle position:
