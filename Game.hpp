@@ -19,6 +19,29 @@ struct Game {
         bool go_down = false;
     } wolf_controls;
 
+    struct {
+        float x_velocity = 0.0f;
+        float y_velocity = 0.0f;
+        glm::vec2 position = glm::vec2(0.0f, 0.0f);
+        bool face_left = true;
+        uint8_t disguise = 0;
+        uint8_t num_eaten = 0;
+    } wolf_state;
+
+    struct {
+        bool go_left = false;
+        bool go_right = false;
+        bool go_up = false;
+        bool go_down = false;
+    } farmer_controls;
+
+    struct {
+        float x_velocity = 0.0f;
+        float y_velocity = 0.0f;
+        glm::vec2 position = glm::vec2(0.0f, 0.0f);
+        uint8_t strikes = 0;
+    } farmer_state;
+
     static constexpr const float max_velocity = 0.05f;
     static constexpr const float acceleration = 0.75f;
     static constexpr const float deceleration = 0.75f;
@@ -33,14 +56,6 @@ struct Game {
         glm::vec3 mesh_scale;
     };
     std::vector< AnimalMesh > animal_meshes;
-
-    struct {
-        float x_velocity = 0.0f;
-        float y_velocity = 0.0f;
-        glm::vec2 position = glm::vec2(0.0f, 0.0f);
-        bool face_left = true;
-        uint8_t disguise = 0;
-    } wolf_state;
 
 	glm::vec2 paddle = glm::vec2(0.0f,-3.0f);
 	glm::vec2 ball = glm::vec2(0.0f, 0.0f);

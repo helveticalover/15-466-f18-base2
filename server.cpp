@@ -26,11 +26,13 @@ int main(int argc, char **argv) {
 	glm::vec2 wolf_position;
 	bool wolf_face_left;
 	uint8_t wolf_disguise;
+	glm::vec2 farmer_position;
 
 	std::vector< Connection *> spectators;
 
 	while (1) {
 	    bool update_farmer = false;
+	    bool update_wolf = false;
 
 		server.poll([&](Connection *c, Connection::Event evt){
 
@@ -75,6 +77,14 @@ int main(int argc, char **argv) {
 								c->recv_buffer.erase(c->recv_buffer.begin(), c->recv_buffer.begin() + sizeof(uint8_t));
 
 								break;
+                            case 'f':
+                                if (c->recv_buffer.size() < 2 + sizeof(glm::vec2)) return;
+
+                                memcpy(&farmer_position, c->recv_buffer.data() + 2, sizeof(glm::vec2));
+                                c->recv_buffer.erase(c->recv_buffer.begin(), c->recv_buffer.begin() + 2 + sizeof(glm::vec2));
+
+                                update_wolf = farmer_position != globalState.farmer_state.position;
+                                break;
                             default:
                                 std::cerr << "Unknown wolf message from client" << std::endl;
                                 break;
@@ -83,8 +93,15 @@ int main(int argc, char **argv) {
 				    case 'f':
                         if (c->recv_buffer.size() < 2) return;
                         switch(c->recv_buffer[1]) {
+                            case 's':
+                                if (c->recv_buffer.size() < 2 + sizeof(glm::vec2)) return;
+
+                                memcpy(&globalState.farmer_state.position, c->recv_buffer.data() + 2, sizeof(glm::vec2));
+                                c->recv_buffer.erase(c->recv_buffer.begin(), c->recv_buffer.begin() + 2 + sizeof(glm::vec2));
+
+                                break;
                             case 'w':
-                                if (c->recv_buffer.size() < 2 + sizeof(glm::vec2) + sizeof(bool)) return;
+                                if (c->recv_buffer.size() < 2 + sizeof(glm::vec2) + sizeof(bool) + sizeof(uint8_t)) return;
 
                                 memcpy(&wolf_position, c->recv_buffer.data() + 2, sizeof(glm::vec2));
                                 c->recv_buffer.erase(c->recv_buffer.begin(), c->recv_buffer.begin() + 2 + sizeof(glm::vec2));
@@ -114,8 +131,9 @@ int main(int argc, char **argv) {
 		// -------------------------- UPDATE CLIENT GAME STATES
 
 		// farmer position, animals
-		if (wolf) {
-
+		if (wolf && update_wolf) {
+            wolf->send_raw("f", 1);
+            wolf->send_raw(&globalState.farmer_state.position, sizeof(glm::vec2));
 		}
 
         // wolf position, wolf disguise, animals

@@ -57,8 +57,52 @@ bool Game::update(float time) {
             wolf_state.position += mv;
             return true;
         }
+    }
+    else if (player == FARMER) {
+        if (farmer_controls.go_left) {
+            farmer_state.x_velocity -= time * acceleration;
+        }
+        if (farmer_controls.go_up) {
+            farmer_state.y_velocity += time * acceleration;
+        }
+        if (farmer_controls.go_right) {
+            farmer_state.x_velocity += time * acceleration;
+        }
+        if (farmer_controls.go_down) {
+            farmer_state.y_velocity -= time * acceleration;
+        }
 
-        return false;
+        // Decelerate to a stop
+        if (!farmer_controls.go_left && !farmer_controls.go_right && farmer_state.x_velocity != 0.0f) {
+            int sign = farmer_state.x_velocity < 0 ? -1 : 1;
+            farmer_state.x_velocity -= sign * deceleration * time;
+
+            if (sign > 0) {
+                farmer_state.x_velocity = glm::clamp(farmer_state.x_velocity, 0.0f, max_velocity);
+            } else {
+                farmer_state.x_velocity = glm::clamp(farmer_state.x_velocity, -max_velocity, 0.0f);
+            }
+        }
+        if (!farmer_controls.go_up && !farmer_controls.go_down && farmer_state.y_velocity != 0.0f) {
+            int sign = farmer_state.y_velocity < 0 ? -1 : 1;
+            farmer_state.y_velocity -= sign * deceleration * time;
+
+            if (sign > 0) {
+                farmer_state.y_velocity = glm::clamp(farmer_state.y_velocity, 0.0f, max_velocity);
+            } else {
+                farmer_state.y_velocity = glm::clamp(farmer_state.y_velocity, -max_velocity, 0.0f);
+            }
+        }
+
+        farmer_state.x_velocity = glm::clamp(farmer_state.x_velocity, -max_velocity, max_velocity);
+        farmer_state.y_velocity = glm::clamp(farmer_state.y_velocity, -max_velocity, max_velocity);
+        glm::vec2 mv = farmer_state.x_velocity * glm::vec2(1.0f, 0.0f) +
+                       farmer_state.y_velocity * glm::vec2(0.0f, 1.0f);
+
+        if (mv != glm::vec2(0.0f, 0.0f)) {
+            farmer_state.position += mv;
+            return true;
+        }
     }
 
     return false;

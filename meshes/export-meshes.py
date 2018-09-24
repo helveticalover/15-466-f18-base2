@@ -162,8 +162,11 @@ for obj in bpy.data.objects:
 						data += struct.pack('f', x)
 				if filetype.color:
 					if colors != None:
-						col = colors[poly.loop_indices[i]].color
-						data += struct.pack('BBBB', int(col.r * 255), int(col.g * 255), int(col.b * 255), 255)
+						if name == "Crosshair":
+							data += struct.pack('BBBB', int(col.r * 255), int(col.g * 255), int(col.b * 255), 200)
+						else:
+							col = colors[poly.loop_indices[i]].color
+							data += struct.pack('BBBB', int(col.r * 255), int(col.g * 255), int(col.b * 255), 255)
 					else:
 						data += struct.pack('BBBB', 255, 255, 255, 255)
 				if filetype.texcoord:

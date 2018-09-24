@@ -30,9 +30,8 @@ Load< GLuint > meshes_for_vertex_color_program(LoadTagDefault, [](){
 	return new GLuint(meshes->make_vao_for_program(vertex_color_program->program));
 });
 
-Scene::Transform *paddle_transform = nullptr;
-Scene::Transform *ball_transform = nullptr;
 Scene::Transform *wolf_transform = nullptr;
+Scene::Transform *farmer_transform = nullptr;
 Scene::Object *wolfplayer_object = nullptr;
 
 Game::AnimalMesh wolf;
@@ -69,6 +68,9 @@ Load< Scene > scene(LoadTagDefault, [](){
 			if (wolf_transform) throw std::runtime_error("Multiple 'Wolf' transforms in scene.");
             wolf_transform = t;
             wolf.mesh_scale = t->scale;
+		} else if(t->name == "Crosshair") {
+            if (farmer_transform) throw std::runtime_error("Multiple 'Crosshair' transforms in scene.");
+            farmer_transform = t;
 		} else if (t->name == "Sheep") {
 			sheep.mesh_scale = t->scale;
 		} else if (t->name == "Pig") {
@@ -78,6 +80,7 @@ Load< Scene > scene(LoadTagDefault, [](){
 		}
 	}
 	if (!wolf_transform) throw std::runtime_error("No 'Wolf' transform in scene.");
+    if (!farmer_transform) throw std::runtime_error("No 'Crosshair' transform in scene.");
 
 	//look up animal meshes:
 	MeshBuffer::Mesh const &wolf_mesh = meshes->lookup("Wolf");
@@ -93,9 +96,6 @@ Load< Scene > scene(LoadTagDefault, [](){
 	pig.mesh_count = pig_mesh.count;
 	cow.mesh_start = cow_mesh.start;
 	cow.mesh_count = cow_mesh.count;
-
-	paddle_transform = ret->new_transform();
-	ball_transform = ret->new_transform();
 
 	//look up the camera:
 	for (Scene::Camera *c = ret->first_camera; c != nullptr; c = c->alloc_next) {
@@ -186,6 +186,21 @@ bool GameMode::handle_event(SDL_Event const &evt, glm::uvec2 const &window_size)
 			}
 			break;
 		case Game::PlayerType::FARMER:
+            if (evt.type == SDL_KEYDOWN || evt.type == SDL_KEYUP) {
+                if (evt.key.keysym.scancode == SDL_SCANCODE_W) {
+                    state.farmer_controls.go_up = (evt.type == SDL_KEYDOWN);
+                    return true;
+                } else if (evt.key.keysym.scancode == SDL_SCANCODE_S) {
+                    state.farmer_controls.go_down = (evt.type == SDL_KEYDOWN);
+                    return true;
+                } else if (evt.key.keysym.scancode == SDL_SCANCODE_A) {
+                    state.farmer_controls.go_left = (evt.type == SDL_KEYDOWN);
+                    return true;
+                } else if (evt.key.keysym.scancode == SDL_SCANCODE_D) {
+                    state.farmer_controls.go_right = (evt.type == SDL_KEYDOWN);
+                    return true;
+                }
+            }
 			break;
 		case Game::PlayerType::SPECTATOR:
 			break;
@@ -202,14 +217,20 @@ void GameMode::update(float elapsed) {
 		//send own game state and predicted game state to server:
         switch(state.player) {
         	case Game::PlayerType::WOLFPLAYER:
-        		if (update) {	// Send actual wolf state
+        		if (update) {
 					client.connection.send_raw("ws", 2);
 					client.connection.send_raw(&state.wolf_state.position, sizeof(glm::vec2));
 					client.connection.send_raw(&state.wolf_state.face_left, sizeof(bool));
 					client.connection.send_raw(&state.wolf_state.disguise, sizeof(uint8_t));
         		}
+                client.connection.send_raw("wf", 2);
+                client.connection.send_raw(&state.farmer_state.position, sizeof(glm::vec2));
 				break;
-        	case Game::PlayerType::FARMER:	// Send local wolf state
+        	case Game::PlayerType::FARMER:
+        	    if (update) {
+                    client.connection.send_raw("fs", 2);
+                    client.connection.send_raw(&state.farmer_state.position, sizeof(glm::vec2));
+        	    }
                 client.connection.send_raw("fw", 2);
                 client.connection.send_raw(&state.wolf_state.position, sizeof(glm::vec2));
                 client.connection.send_raw(&state.wolf_state.face_left, sizeof(bool));
@@ -228,10 +249,18 @@ void GameMode::update(float elapsed) {
 		} else { assert(event == Connection::OnRecv);
             switch (state.player) {
                 case Game::PlayerType::WOLFPLAYER:
+                    switch (c->recv_buffer[0]) {
+                        case 'f':
+                            if (c->recv_buffer.size() < 1 + sizeof(glm::vec2) + sizeof(bool)) return;
+
+                            memcpy(&state.farmer_state.position, c->recv_buffer.data() + 1, sizeof(glm::vec2));
+                            c->recv_buffer.erase(c->recv_buffer.begin(), c->recv_buffer.begin() + 1 + sizeof(glm::vec2));
+                            break;
+                    }
                     break;
                 case Game::PlayerType::FARMER:
                     switch (c->recv_buffer[0]) {
-                        case 'w':	// Update wolf state
+                        case 'w':
                             if (c->recv_buffer.size() < 1 + sizeof(glm::vec2) + sizeof(bool)) return;
 
                             memcpy(&state.wolf_state.position, c->recv_buffer.data() + 1, sizeof(glm::vec2));
@@ -254,15 +283,12 @@ void GameMode::update(float elapsed) {
 	});
 
 	//copy game state to scene positions:
-	ball_transform->position.x = state.ball.x;
-	ball_transform->position.y = state.ball.y;
-
-	paddle_transform->position.x = state.paddle.x;
-	paddle_transform->position.y = state.paddle.y;
-
 	wolf_transform->position.x = state.wolf_state.position.x;
 	wolf_transform->position.y = state.wolf_state.position.y;
 	wolf_transform->rotation = state.wolf_state.face_left ? state.left_rotation : state.right_rotation;
+
+	farmer_transform->position.x = state.farmer_state.position.x;
+	farmer_transform->position.y = state.farmer_state.position.y;
 
 	Game::AnimalMesh mesh_info = state.animal_meshes[state.wolf_state.disguise];
 	wolfplayer_object->start = mesh_info.mesh_start;
