@@ -40,7 +40,6 @@ struct Game {
         glm::vec2 position = glm::vec2(0.0f, 0.0f);
         bool face_left = true;
         uint8_t disguise = 0;
-        uint32_t disguises_left = 100;
     } wolf_state;
 
 	glm::vec2 paddle = glm::vec2(0.0f,-3.0f);
@@ -48,7 +47,6 @@ struct Game {
 	glm::vec2 ball_velocity = glm::vec2(0.0f,-2.0f);
 
 	bool update(float time);
-	AnimalMesh update_disguise();
 
 	static constexpr const float FrameWidth = 10.0f;
 	static constexpr const float FrameHeight = 8.0f;

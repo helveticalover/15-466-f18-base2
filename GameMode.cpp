@@ -178,14 +178,10 @@ bool GameMode::handle_event(SDL_Event const &evt, glm::uvec2 const &window_size)
 				}
 			}
 
-			if (evt.type == SDL_KEYDOWN && evt.key.keysym.scancode == SDL_SCANCODE_SPACE && state.wolf_state.disguises_left) {
-				Game::AnimalMesh mesh_info = state.update_disguise();
-				wolfplayer_object->start = mesh_info.mesh_start;
-				wolfplayer_object->count = mesh_info.mesh_count;
-				wolfplayer_object->transform->scale = mesh_info.mesh_scale;
-                if (client.connection) {
-                    client.connection.send_raw("d", 1);
-                }
+			if (evt.type == SDL_KEYDOWN && evt.key.keysym.scancode == SDL_SCANCODE_SPACE) {
+				++(state.wolf_state.disguise);
+				if (state.wolf_state.disguise == state.animal_meshes.size())
+					state.wolf_state.disguise = 1;
 				return true;
 			}
 			break;
@@ -210,12 +206,14 @@ void GameMode::update(float elapsed) {
 					client.connection.send_raw("ws", 2);
 					client.connection.send_raw(&state.wolf_state.position, sizeof(glm::vec2));
 					client.connection.send_raw(&state.wolf_state.face_left, sizeof(bool));
+					client.connection.send_raw(&state.wolf_state.disguise, sizeof(uint8_t));
         		}
 				break;
         	case Game::PlayerType::FARMER:	// Send local wolf state
                 client.connection.send_raw("fw", 2);
                 client.connection.send_raw(&state.wolf_state.position, sizeof(glm::vec2));
                 client.connection.send_raw(&state.wolf_state.face_left, sizeof(bool));
+                client.connection.send_raw(&state.wolf_state.disguise, sizeof(uint8_t));
                 break;
         	default:
         		std::cerr << "Unknown player type in GameMode::update." << std::endl;
@@ -235,19 +233,16 @@ void GameMode::update(float elapsed) {
                     switch (c->recv_buffer[0]) {
                         case 'w':	// Update wolf state
                             if (c->recv_buffer.size() < 1 + sizeof(glm::vec2) + sizeof(bool)) return;
+
                             memcpy(&state.wolf_state.position, c->recv_buffer.data() + 1, sizeof(glm::vec2));
                             c->recv_buffer.erase(c->recv_buffer.begin(), c->recv_buffer.begin() + 1 + sizeof(glm::vec2));
+
                             memcpy(&state.wolf_state.face_left, c->recv_buffer.data(), sizeof(bool));
                             c->recv_buffer.erase(c->recv_buffer.begin(), c->recv_buffer.begin() + sizeof(bool));
+
+                            memcpy(&state.wolf_state.disguise, c->recv_buffer.data(), sizeof(uint8_t));
+                            c->recv_buffer.erase(c->recv_buffer.begin(), c->recv_buffer.begin() + sizeof(uint8_t));
                             break;
-                        case 'd':	// Update wolf disguise
-                            std::cout << "Update disguise" << std::endl;
-							Game::AnimalMesh mesh_info = state.update_disguise();
-							wolfplayer_object->start = mesh_info.mesh_start;
-							wolfplayer_object->count = mesh_info.mesh_count;
-							wolfplayer_object->transform->scale = mesh_info.mesh_scale;
-                            c->recv_buffer.erase(c->recv_buffer.begin(), c->recv_buffer.begin() + 1);
-                        	break;
                     }
                     break;
                 case Game::PlayerType::SPECTATOR:
@@ -268,6 +263,11 @@ void GameMode::update(float elapsed) {
 	wolf_transform->position.x = state.wolf_state.position.x;
 	wolf_transform->position.y = state.wolf_state.position.y;
 	wolf_transform->rotation = state.wolf_state.face_left ? state.left_rotation : state.right_rotation;
+
+	Game::AnimalMesh mesh_info = state.animal_meshes[state.wolf_state.disguise];
+	wolfplayer_object->start = mesh_info.mesh_start;
+	wolfplayer_object->count = mesh_info.mesh_count;
+	wolfplayer_object->transform->scale = mesh_info.mesh_scale;
 }
 
 void GameMode::draw(glm::uvec2 const &drawable_size) {

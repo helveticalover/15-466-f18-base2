@@ -63,11 +63,3 @@ bool Game::update(float time) {
 
     return false;
 }
-
-Game::AnimalMesh Game::update_disguise() {
-    ++(wolf_state.disguise);
-    --(wolf_state.disguises_left);
-    if (wolf_state.disguise == animal_meshes.size())
-        wolf_state.disguise = 1;
-    return animal_meshes[wolf_state.disguise];
-};
