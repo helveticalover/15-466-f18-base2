@@ -22,14 +22,17 @@ int main(int argc, char **argv) {
 	Game globalState;
 	Connection *wolf = nullptr;
 	Connection *farmer = nullptr;
-
 	std::vector< Connection *> spectators;
+
+    std::mt19937 rng;
+    rng.seed(std::random_device()());
+    std::uniform_int_distribution<std::mt19937::result_type> dist6(0, globalState.num_decoys);
 
 	while (1) {
 		server.poll([&](Connection *c, Connection::Event evt){
 
 			if (evt == Connection::OnOpen) {    // ---------------------- ASSIGN ROLES
-				if (!wolf) {
+                if (!wolf) {
 					wolf = c;
 					wolf->send_raw("w", 1);
 				} else if (!farmer) {
@@ -110,18 +113,30 @@ int main(int argc, char **argv) {
 			}
 		}, 0.01);
 
-		// -------------------------- UPDATE CLIENT STATES
+		//every two seconds, move 5 decoy animals randomly
+		static auto then = std::chrono::steady_clock::now();
+		auto now = std::chrono::steady_clock::now();
+		if (now > then + std::chrono::seconds(3)) {
+			then = now;
 
+			for (uint32_t i = 0; i < 5; ++i) {
+                uint32_t decoy_index = dist6(rng);
+                float x_goal = -globalState.PenLimit + (rand() / (RAND_MAX/(2.0f * globalState.PenLimit)));
+                float y_goal = -globalState.PenLimit + (rand() / (RAND_MAX/(2.0f * globalState.PenLimit)));
+                glm::vec2 goal = glm::vec2(x_goal, y_goal);
 
+                if (wolf) {
+                    wolf->send_raw("a", 1);
+                    wolf->send_raw(&decoy_index, sizeof(uint32_t));
+                    wolf->send_raw(&goal, sizeof(glm::vec2));
+                }
 
-
-		//every second or so, dump the current paddle position:
-//		static auto then = std::chrono::steady_clock::now();
-//		auto now = std::chrono::steady_clock::now();
-//		if (now > then + std::chrono::seconds(1)) {
-//			then = now;
-//			std::cout << "Current wolf position: " << glm::to_string(globalState.wolf_state.position) << std::endl;
-//			//std::cout << "Current paddle position: " << globalState.paddle.x << std::endl;
-//		}
+                if (farmer) {
+                    farmer->send_raw("a", 1);
+                    farmer->send_raw(&decoy_index, sizeof(uint32_t));
+                    farmer->send_raw(&goal, sizeof(glm::vec2));
+                }
+			}
+		}
 	}
 }

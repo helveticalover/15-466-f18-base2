@@ -4,7 +4,7 @@
 
 #include <glm/glm.hpp>
 #include <glm/gtc/quaternion.hpp>
-#include <map>
+#include <random>
 
 #include "Connection.hpp"
 #include "Scene.hpp"
@@ -63,6 +63,15 @@ struct Game {
         float shoot_y;
     };
     std::vector< AnimalMesh > animal_meshes;
+
+    struct Decoy {
+        bool face_left = true;
+        glm::vec2 position;
+        glm::vec2 target;
+        uint8_t animal;
+    };
+    std::vector< Decoy > decoy_animals;
+    uint32_t num_decoys = 41;
 
 	glm::vec2 paddle = glm::vec2(0.0f,-3.0f);
 	glm::vec2 ball = glm::vec2(0.0f, 0.0f);

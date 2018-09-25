@@ -9,6 +9,8 @@
 
 bool Game::update(float time) {
 
+    bool updated = false;
+
     // ----------------- WOLF MOVEMENT ----------------------
     if (player == WOLFPLAYER) {
         if (wolf_controls.go_left) {
@@ -58,7 +60,7 @@ bool Game::update(float time) {
 
             wolf_state.position.x = glm::clamp(wolf_state.position.x, -PenLimit, PenLimit);
             wolf_state.position.y = glm::clamp(wolf_state.position.y, -PenLimit, PenLimit);
-            return true;
+            updated = true;
         }
     }
     else if (player == FARMER) {
@@ -107,9 +109,17 @@ bool Game::update(float time) {
 
             farmer_state.position.x = glm::clamp(farmer_state.position.x, -PenLimit, PenLimit);
             farmer_state.position.y = glm::clamp(farmer_state.position.y, -PenLimit, PenLimit);
-            return true;
+            updated = true;
         }
     }
 
-    return false;
+    for (Decoy decoy : decoy_animals) {
+        if (decoy.position == decoy.target) continue;
+
+        glm::vec2 mv = MaxVelocity * glm::normalize(decoy.target - decoy.position);
+        decoy.face_left = mv.x <= 0;
+        decoy.position += mv;
+    }
+
+    return updated;
 }

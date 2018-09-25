@@ -19,6 +19,7 @@
 #include <map>
 #include <cstddef>
 #include <random>
+#include <regex>
 
 #define GLM_ENABLE_EXPERIMENTAL
 #include <glm/gtx/string_cast.hpp>
@@ -61,6 +62,8 @@ Scene::Transform *farmer_transform = nullptr;
 Scene::Object *wolfplayer_object = nullptr;
 Scene::Object *hitmarker = nullptr;
 
+Scene::Transform *decoys[41];
+
 Game::AnimalMesh wolf;
 Game::AnimalMesh sheep;
 Game::AnimalMesh pig;
@@ -72,8 +75,7 @@ Load< Scene > scene(LoadTagDefault, [](){
 	Scene *ret = new Scene;
 	//load transform hierarchy:
 	ret->load(data_path("wolf-sheep.scene"), [](Scene &s, Scene::Transform *t, std::string const &m){
-		if (t->name == "Sheep" || t->name == "Pig" || t->name == "Cow" ||
-		    t->name == "SheepDisguise" || t->name == "PigDisguise" || t->name == "CowDisguise")
+		if (t->name == "SheepDisguise" || t->name == "PigDisguise" || t->name == "CowDisguise")
 			return;
 
 		Scene::Object *obj = s.new_object(t);
@@ -98,6 +100,11 @@ Load< Scene > scene(LoadTagDefault, [](){
 		}
 	});
 
+    std::regex sheepr ("(Sheep.)(.*)");
+    std::regex pigr ("(Pig.)(.*)");
+    std::regex cowr ("(Cow.)(.*)");
+
+    uint32_t count = 0;
 	for (Scene::Transform *t = ret->first_transform; t != nullptr; t = t->alloc_next) {
 		if (t->name == "Wolf") {
 			if (wolf_transform) throw std::runtime_error("Multiple 'Wolf' transforms in scene.");
@@ -113,6 +120,11 @@ Load< Scene > scene(LoadTagDefault, [](){
 		} else if (t->name == "Cow") {
 			cow.mesh_scale = t->scale;
 		}
+
+        if (std::regex_match(t->name, sheepr) || std::regex_match(t->name, pigr) || std::regex_match(t->name, cowr)) {
+            decoys[count] = t;
+            ++count;
+        }
 	}
 	if (!wolf_transform) throw std::runtime_error("No 'Wolf' transform in scene.");
     if (!farmer_transform) throw std::runtime_error("No 'Crosshair' transform in scene.");
@@ -171,6 +183,31 @@ GameMode::GameMode(Client &client_) : client(client_) {
 	state.animal_meshes.emplace_back(sheep);
 	state.animal_meshes.emplace_back(pig);
 	state.animal_meshes.emplace_back(cow);
+
+    std::regex sheepr ("(Sheep.)(.*)");
+    std::regex pigr ("(Pig.)(.*)");
+    std::regex cowr ("(Cow.)(.*)");
+    for (uint32_t i = 0; i < 41; ++i) {
+        Game::Decoy d;
+        d.position = glm::vec2(decoys[i]->position.x, decoys[i]->position.y);
+        d.target = d.position;
+
+        float r = rand() / RAND_MAX;
+        d.face_left = r <= 0.5f;
+
+        if (std::regex_match(decoys[i]->name, sheepr)) {
+            d.animal = 1;
+        } else if (std::regex_match(decoys[i]->name, pigr)) {
+            d.animal = 2;
+        } else if (std::regex_match(decoys[i]->name, cowr)) {
+            d.animal = 3;
+        } else {
+            std::cerr << "Non-animal in decoy animals list" << std::endl;
+        }
+
+        state.decoy_animals.emplace_back(d);
+    }
+    state.num_decoys = state.decoy_animals.size();
 
 	bool joined_team = false;
 	while(!joined_team) {
@@ -304,6 +341,11 @@ bool GameMode::handle_event(SDL_Event const &evt, glm::uvec2 const &window_size)
                 }
 				return true;
 			}
+
+//			if (evt.type == SDL_KEYDOWN && evt.key.keysym.scancode == SDL_SCANCODE_LSHIFT) {
+//			    //try eat
+//			    return true;
+//			}
 			break;
 		case Game::PlayerType::FARMER:
             if (evt.type == SDL_KEYDOWN || evt.type == SDL_KEYUP) {
@@ -417,6 +459,20 @@ void GameMode::update(float elapsed) {
 
                             memcpy(&state.farmer_state.position, c->recv_buffer.data() + 1, sizeof(glm::vec2));
                             c->recv_buffer.erase(c->recv_buffer.begin(), c->recv_buffer.begin() + 1 + sizeof(glm::vec2));
+
+				        } else if (c->recv_buffer[0] == 'a') {
+				            if (c->recv_buffer.size() < 1 + sizeof(uint32_t) + sizeof(glm::vec2)) break;
+
+				            uint32_t decoy_index;
+                            memcpy(&decoy_index, c->recv_buffer.data() + 1, sizeof(uint32_t));
+                            c->recv_buffer.erase(c->recv_buffer.begin(), c->recv_buffer.begin() + 1 + sizeof(uint32_t));
+
+                            glm::vec2 goal;
+                            memcpy(&goal, c->recv_buffer.data(), sizeof(glm::vec2));
+                            c->recv_buffer.erase(c->recv_buffer.begin(), c->recv_buffer.begin() + sizeof(glm::vec2));
+
+                            state.decoy_animals[decoy_index].target = goal;
+
 				        } else if (c->recv_buffer[0] == 'k') {
 				            c->recv_buffer.erase(c->recv_buffer.begin(), c->recv_buffer.begin() + 1);
 
@@ -429,6 +485,7 @@ void GameMode::update(float elapsed) {
                             whine_sample->play(wolf_to_world * glm::vec4(0.0f, 0.0f, 0.0f, 1.0f), 2.0f, Sound::Once);
 
 				            std::cout << "You've been killed!" << std::endl;
+
 				        } else if (c->recv_buffer[0] == 'm') {
 							if (c->recv_buffer.size() < 1 + sizeof(glm::vec2)) break;
 
@@ -453,6 +510,19 @@ void GameMode::update(float elapsed) {
                                                  c->recv_buffer.begin() + 1 + sizeof(glm::vec2));
                             memcpy(&state.wolf_state.face_left, c->recv_buffer.data(), sizeof(bool));
                             c->recv_buffer.erase(c->recv_buffer.begin(), c->recv_buffer.begin() + sizeof(bool));
+
+                        } else if (c->recv_buffer[0] == 'a') {
+                            if (c->recv_buffer.size() < 1 + sizeof(uint32_t) + sizeof(glm::vec2)) break;
+
+                            uint32_t decoy_index;
+                            memcpy(&decoy_index, c->recv_buffer.data() + 1, sizeof(uint32_t));
+                            c->recv_buffer.erase(c->recv_buffer.begin(), c->recv_buffer.begin() + 1 + sizeof(uint32_t));
+
+                            glm::vec2 goal;
+                            memcpy(&goal, c->recv_buffer.data(), sizeof(glm::vec2));
+                            c->recv_buffer.erase(c->recv_buffer.begin(), c->recv_buffer.begin() + sizeof(glm::vec2));
+
+                            state.decoy_animals[decoy_index].target = goal;
 
                         } else if (c->recv_buffer[0] == 'd') {  // disguise
                             if (c->recv_buffer.size() < 1 + sizeof(glm::uint8_t)) break;
@@ -497,6 +567,15 @@ void GameMode::update(float elapsed) {
 	        break;
 	    default:
 	        break;
+	}
+
+	for (uint32_t i = 0; i < state.decoy_animals.size(); ++i) {
+		Scene::Transform *decoy_transform = decoys[i];
+		Game::Decoy decoy_info = state.decoy_animals[i];
+
+		decoy_transform->position.x = decoy_info.position.x;
+		decoy_transform->position.y = decoy_info.position.y;
+		decoy_transform->scale.z = decoy_info.face_left ? decoy_transform->scale.x : -1.0f * decoy_transform->scale.x;
 	}
 }
 
