@@ -14,13 +14,15 @@ Screen Shot:
 How To Play:
 
 The first player to join is the wolf. The second is the farmer.
+
 Wolf:
--WASD to move
--Space to change disguises
--Left Shift to eat nearby animals
+- WASD to move
+- Space to change disguises
+- Left Shift to eat nearby animals
+
 Farmer:
--WASD to move
--Space to shoot
+- WASD to move
+- Space to shoot
 
 Changes From The Design Document:
 
