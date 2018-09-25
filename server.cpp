@@ -107,6 +107,26 @@ int main(int argc, char **argv) {
                         if (farmer) {
                             farmer->send_raw("c", 1);
                         }
+                    } else if (c->recv_buffer[0] == 'j') {
+                        if (c->recv_buffer.size() < 1 + sizeof(int)) return;
+
+                        int animal_killed;
+                        memcpy(&animal_killed, c->recv_buffer.data() + 1, sizeof(int));
+                        c->recv_buffer.erase(c->recv_buffer.begin(), c->recv_buffer.begin() + 1 + sizeof(int));
+                        if (wolf) {
+                            wolf->send_raw("j", 1);
+                            wolf->send_raw(&animal_killed, sizeof(int));
+                        }
+                    } else if (c->recv_buffer[0] == 'e') {
+                        if (c->recv_buffer.size() < 1 + sizeof(int)) return;
+
+                        int animal_killed;
+                        memcpy(&animal_killed, c->recv_buffer.data() + 1, sizeof(int));
+                        c->recv_buffer.erase(c->recv_buffer.begin(), c->recv_buffer.begin() + 1 + sizeof(int));
+                        if (farmer) {
+                            farmer->send_raw("e", 1);
+                            farmer->send_raw(&animal_killed, sizeof(int));
+                        }
                     }
 				}
 

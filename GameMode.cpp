@@ -62,7 +62,10 @@ Scene::Transform *farmer_transform = nullptr;
 Scene::Object *wolfplayer_object = nullptr;
 Scene::Object *hitmarker = nullptr;
 
-Scene::Transform *decoys[41];
+std::regex sheepr ("(Sheep.)(.*)");
+std::regex pigr ("(Pig.)(.*)");
+std::regex cowr ("(Cow.)(.*)");
+std::vector< Scene::Transform * > decoy_transforms;
 
 Game::AnimalMesh wolf;
 Game::AnimalMesh sheep;
@@ -73,9 +76,12 @@ Scene::Camera *camera = nullptr;
 
 Load< Scene > scene(LoadTagDefault, [](){
 	Scene *ret = new Scene;
+
 	//load transform hierarchy:
 	ret->load(data_path("wolf-sheep.scene"), [](Scene &s, Scene::Transform *t, std::string const &m){
-		if (t->name == "SheepDisguise" || t->name == "PigDisguise" || t->name == "CowDisguise")
+		if (t->name == "SheepDisguise" || t->name == "PigDisguise" || t->name == "CowDisguise" ||
+		    t->name == "SheepHighlight" || t->name == "PigHighlight" || t->name == "CowHighlight" ||
+		    t->name == "WolfHighlight")
 			return;
 
 		Scene::Object *obj = s.new_object(t);
@@ -100,11 +106,6 @@ Load< Scene > scene(LoadTagDefault, [](){
 		}
 	});
 
-    std::regex sheepr ("(Sheep.)(.*)");
-    std::regex pigr ("(Pig.)(.*)");
-    std::regex cowr ("(Cow.)(.*)");
-
-    uint32_t count = 0;
 	for (Scene::Transform *t = ret->first_transform; t != nullptr; t = t->alloc_next) {
 		if (t->name == "Wolf") {
 			if (wolf_transform) throw std::runtime_error("Multiple 'Wolf' transforms in scene.");
@@ -113,17 +114,16 @@ Load< Scene > scene(LoadTagDefault, [](){
 		} else if (t->name == "Crosshair") {
             if (farmer_transform) throw std::runtime_error("Multiple 'Crosshair' transforms in scene.");
             farmer_transform = t;
-		} else if (t->name == "Sheep") {
+		} else if (t->name == "Sheep.") {
 				sheep.mesh_scale = t->scale;
-		} else if (t->name == "Pig") {
+		} else if (t->name == "Pig.") {
 			pig.mesh_scale = t->scale;
-		} else if (t->name == "Cow") {
+		} else if (t->name == "Cow.") {
 			cow.mesh_scale = t->scale;
 		}
 
         if (std::regex_match(t->name, sheepr) || std::regex_match(t->name, pigr) || std::regex_match(t->name, cowr)) {
-            decoys[count] = t;
-            ++count;
+            decoy_transforms.emplace_back(t);
         }
 	}
 	if (!wolf_transform) throw std::runtime_error("No 'Wolf' transform in scene.");
@@ -137,21 +137,33 @@ Load< Scene > scene(LoadTagDefault, [](){
 	MeshBuffer::Mesh const &dsheep_mesh = meshes->lookup("SheepDisguise");
 	MeshBuffer::Mesh const &dpig_mesh = meshes->lookup("PigDisguise");
 	MeshBuffer::Mesh const &dcow_mesh = meshes->lookup("CowDisguise");
+	MeshBuffer::Mesh const &hwolf_mesh = meshes->lookup("WolfHighlight");
+    MeshBuffer::Mesh const &hsheep_mesh = meshes->lookup("SheepHighlight");
+    MeshBuffer::Mesh const &hpig_mesh = meshes->lookup("PigHighlight");
+    MeshBuffer::Mesh const &hcow_mesh = meshes->lookup("CowHighlight");
 
 	wolf.mesh_start = wolf_mesh.start;
 	wolf.mesh_count = wolf_mesh.count;
+    wolf.hmesh_start = hwolf_mesh.start;
+    wolf.hmesh_count = hwolf_mesh.count;
 	sheep.mesh_start = sheep_mesh.start;
 	sheep.mesh_count = sheep_mesh.count;
 	sheep.dmesh_start = dsheep_mesh.start;
 	sheep.dmesh_count = dsheep_mesh.count;
+    sheep.hmesh_start = hsheep_mesh.start;
+    sheep.hmesh_count = hsheep_mesh.count;
 	pig.mesh_start = pig_mesh.start;
 	pig.mesh_count = pig_mesh.count;
 	pig.dmesh_start = dpig_mesh.start;
 	pig.dmesh_count = dpig_mesh.count;
+    pig.hmesh_start = hpig_mesh.start;
+    pig.hmesh_count = hpig_mesh.count;
 	cow.mesh_start = cow_mesh.start;
 	cow.mesh_count = cow_mesh.count;
 	cow.dmesh_start = dcow_mesh.start;
 	cow.dmesh_count = dcow_mesh.count;
+    cow.hmesh_start = hcow_mesh.start;
+    cow.hmesh_count = hcow_mesh.count;
 
 	// For hit detection
 	wolf.shoot_x = 0.5f;
@@ -161,7 +173,8 @@ Load< Scene > scene(LoadTagDefault, [](){
 	pig.shoot_x = 0.6f;
 	pig.shoot_y = 0.4f;
 	cow.shoot_x = 0.8f;
-	cow.shoot_y = 0.5f;
+	cow.shoot_y = 0.4f;
+	cow.y_offset = 0.4f;
 
 	//look up the camera:
 	for (Scene::Camera *c = ret->first_camera; c != nullptr; c = c->alloc_next) {
@@ -187,19 +200,19 @@ GameMode::GameMode(Client &client_) : client(client_) {
     std::regex sheepr ("(Sheep.)(.*)");
     std::regex pigr ("(Pig.)(.*)");
     std::regex cowr ("(Cow.)(.*)");
-    for (uint32_t i = 0; i < 41; ++i) {
+    for (uint32_t i = 0; i < 35; ++i) {
         Game::Decoy d;
-        d.position = glm::vec2(decoys[i]->position.x, decoys[i]->position.y);
+        d.position = glm::vec2(decoy_transforms[i]->position.x, decoy_transforms[i]->position.y);
         d.target = d.position;
 
         float r = rand() / RAND_MAX;
         d.face_left = r <= 0.5f;
 
-        if (std::regex_match(decoys[i]->name, sheepr)) {
+        if (std::regex_match(decoy_transforms[i]->name, sheepr)) {
             d.animal = 1;
-        } else if (std::regex_match(decoys[i]->name, pigr)) {
+        } else if (std::regex_match(decoy_transforms[i]->name, pigr)) {
             d.animal = 2;
-        } else if (std::regex_match(decoys[i]->name, cowr)) {
+        } else if (std::regex_match(decoy_transforms[i]->name, cowr)) {
             d.animal = 3;
         } else {
             std::cerr << "Non-animal in decoy animals list" << std::endl;
@@ -207,7 +220,7 @@ GameMode::GameMode(Client &client_) : client(client_) {
 
         state.decoy_animals.emplace_back(d);
     }
-    state.num_decoys = state.decoy_animals.size();
+    std::cout << state.decoy_animals.size() << std::endl;
 
 	bool joined_team = false;
 	while(!joined_team) {
@@ -284,31 +297,88 @@ bool GameMode::handle_event(SDL_Event const &evt, glm::uvec2 const &window_size)
 		return false;
 	}
 
-	auto try_shoot = [&]() -> Scene::Object * {
-	    if (state.player != Game::PlayerType::FARMER) return nullptr;
+    auto animal_cry = [&](int index, glm::mat4x3 animal_to_world) {
+        switch(index) {
+            case 0:
+                snarl_sample->play(animal_to_world * glm::vec4(0.0f, 0.0f, 0.0f, 1.0f), 2.0f, Sound::Once);
+                break;
+            case 1:
+                sheep_sample->play(animal_to_world * glm::vec4(0.0f, 0.0f, 0.0f, 1.0f), 2.0f, Sound::Once);
+                break;
+            case 2:
+                pig_sample->play(animal_to_world * glm::vec4(0.0f, 0.0f, 0.0f, 1.0f), 2.0f, Sound::Once);
+                break;
+            case 3:
+                cow_sample->play(animal_to_world * glm::vec4(0.0f, 0.0f, 0.0f, 1.0f), 2.0f, Sound::Once);
+                break;
+        }
+    };
+
+	auto try_shoot = [&]() -> int {
+	    if (state.player != Game::PlayerType::FARMER) return -1;
 
 		state.farmer_state.last_hit = state.farmer_state.position;
 		glm::vec2 hit_center = state.farmer_state.position;
+
 		float x_dist = state.animal_meshes[state.wolf_state.disguise].shoot_x;
 		float y_dist = state.animal_meshes[state.wolf_state.disguise].shoot_y;
+		float y_offset = state.animal_meshes[state.wolf_state.disguise].y_offset;
 
 		if (glm::abs(state.wolf_state.position.x - hit_center.x) <= x_dist &&
-			glm::abs(state.wolf_state.position.y - hit_center.y) <= y_dist) {
+			glm::abs(state.wolf_state.position.y + y_offset - hit_center.y) <= y_dist) {
 
             hitmarker->transform->position.x = state.wolf_state.position.x;
             hitmarker->transform->position.y = state.wolf_state.position.y;
 
-			return wolfplayer_object;
+			return state.num_decoys;
+		}
+
+		for (uint32_t i = 0; i < state.num_decoys; ++i) {
+			x_dist = state.animal_meshes[state.decoy_animals[i].animal].shoot_x;
+			y_dist = state.animal_meshes[state.decoy_animals[i].animal].shoot_y;
+			y_offset = state.animal_meshes[state.decoy_animals[i].animal].y_offset;
+
+			if (glm::abs(state.decoy_animals[i].position.x - hit_center.x) <= x_dist &&
+				glm::abs(state.decoy_animals[i].position.y + y_offset - hit_center.y) <= y_dist) {
+
+				hitmarker->transform->position.x = state.decoy_animals[i].position.x;
+				hitmarker->transform->position.y = state.decoy_animals[i].position.y;
+
+				return i;
+			}
 		}
 
         hitmarker->transform->position.x = state.farmer_state.position.x;
         hitmarker->transform->position.y = state.farmer_state.position.y;
 
-		return nullptr;
+		return -1;
 	};
 
+	auto try_eat = [&]() -> int {
+		float x_min = state.wolf_state.position.x +
+				(state.wolf_state.face_left ? -state.EatOffset : state.EatOffset) - state.EatRange;
+		float x_max = state.wolf_state.position.x +
+					  (state.wolf_state.face_left ? -state.EatOffset : state.EatOffset) + state.EatRange;
+		float y_min = state.wolf_state.position.y - state.EatRange;
+		float y_max = state.wolf_state.position.y + state.EatRange;
+
+		for (uint32_t i = 0; i < state.num_decoys; ++i) {
+		    float offset = state.animal_meshes[state.decoy_animals[i].animal].y_offset;
+
+			if (x_min <= state.decoy_animals[i].position.x && state.decoy_animals[i].position.x <= x_max &&
+				y_min <= state.decoy_animals[i].position.y + offset && state.decoy_animals[i].position.y + offset <= y_max) {
+				return (int)i;
+			}
+		}
+		return -1;
+	};
+
+	state.target = -1;
 	switch (state.player){
 		case Game::PlayerType::WOLFPLAYER:
+
+		    state.target = try_eat();
+
 			if (evt.type == SDL_KEYDOWN || evt.type == SDL_KEYUP) {
 				if (evt.key.keysym.scancode == SDL_SCANCODE_W) {
 					state.wolf_controls.go_up = (evt.type == SDL_KEYDOWN);
@@ -342,12 +412,28 @@ bool GameMode::handle_event(SDL_Event const &evt, glm::uvec2 const &window_size)
 				return true;
 			}
 
-//			if (evt.type == SDL_KEYDOWN && evt.key.keysym.scancode == SDL_SCANCODE_LSHIFT) {
-//			    //try eat
-//			    return true;
-//			}
+			if (evt.type == SDL_KEYDOWN && evt.key.keysym.scancode == SDL_SCANCODE_LSHIFT) {
+			    if (state.target >= 0) {
+					glm::mat4x3 wolf_to_world = wolf_transform->make_local_to_world();
+					snarl_sample->play(wolf_to_world * glm::vec4(0.0f, 0.0f, 0.0f, 1.0f), 10.0f, Sound::Once);
+
+					glm::mat4x3 animal_to_world = decoy_transforms[state.target]->make_local_to_world();
+					animal_cry(state.decoy_animals[state.target].animal, animal_to_world);
+
+					++state.wolf_state.num_eaten;
+
+					std::cout << "Ate animal " + std::to_string(state.target) << std::endl;
+					client.connection.send_raw("e", 1);
+					client.connection.send_raw(&state.target, sizeof(int));
+			    }
+
+			    return true;
+			}
 			break;
 		case Game::PlayerType::FARMER:
+
+			state.target = try_shoot();
+
             if (evt.type == SDL_KEYDOWN || evt.type == SDL_KEYUP) {
                 if (evt.key.keysym.scancode == SDL_SCANCODE_W) {
                     state.farmer_controls.go_up = (evt.type == SDL_KEYDOWN);
@@ -369,10 +455,20 @@ bool GameMode::handle_event(SDL_Event const &evt, glm::uvec2 const &window_size)
                 glm::mat4x3 farmer_to_world = camera->transform->make_local_to_world();
                 shot_sample->play(farmer_to_world * glm::vec4(0.0f, 0.0f, 0.0f, 1.0f), 5.0f, Sound::Once);
 
-                if (try_shoot()) {
+                if (state.target == (int)state.num_decoys) {
 					glm::mat4x3 wolf_to_world = wolf_transform->make_local_to_world();
 					whine_sample->play(wolf_to_world * glm::vec4(0.0f, 0.0f, 0.0f, 1.0f), 2.0f, Sound::Once);
                     client.connection.send_raw("k", 1);
+                } else if (state.target >= 0) {
+					glm::mat4x3 animal_to_world = decoy_transforms[state.target]->make_local_to_world();
+					uint8_t animal_index = state.decoy_animals[state.target].animal;
+					animal_cry(animal_index, animal_to_world);
+
+                    ++state.farmer_state.strikes;
+
+					std::cout << "Shot animal " + std::to_string(state.target) << std::endl;
+					client.connection.send_raw("j", 1);
+					client.connection.send_raw(&state.target, sizeof(int));
                 } else {
                     client.connection.send_raw("m", 1);
                 }
@@ -389,22 +485,26 @@ bool GameMode::handle_event(SDL_Event const &evt, glm::uvec2 const &window_size)
 
 void GameMode::update(float elapsed) {
 
+	auto animal_cry = [&](int index, glm::mat4x3 animal_to_world) {
+		switch(index) {
+			case 0:
+				snarl_sample->play(animal_to_world * glm::vec4(0.0f, 0.0f, 0.0f, 1.0f), 2.0f, Sound::Once);
+				break;
+			case 1:
+				sheep_sample->play(animal_to_world * glm::vec4(0.0f, 0.0f, 0.0f, 1.0f), 2.0f, Sound::Once);
+				break;
+			case 2:
+				pig_sample->play(animal_to_world * glm::vec4(0.0f, 0.0f, 0.0f, 1.0f), 2.0f, Sound::Once);
+				break;
+			case 3:
+				cow_sample->play(animal_to_world * glm::vec4(0.0f, 0.0f, 0.0f, 1.0f), 2.0f, Sound::Once);
+				break;
+		}
+	};
+
     auto make_noise = [&]() {
         glm::mat4x3 wolf_to_world = wolf_transform->make_local_to_world();
-        switch(state.wolf_state.disguise) {
-            case 0:
-                snarl_sample->play(wolf_to_world * glm::vec4(0.0f, 0.0f, 0.0f, 1.0f), 2.0f, Sound::Once);
-                break;
-            case 1:
-                sheep_sample->play(wolf_to_world * glm::vec4(0.0f, 0.0f, 0.0f, 1.0f), 2.0f, Sound::Once);
-                break;
-            case 2:
-                pig_sample->play(wolf_to_world * glm::vec4(0.0f, 0.0f, 0.0f, 1.0f), 2.0f, Sound::Once);
-                break;
-            case 3:
-                cow_sample->play(wolf_to_world * glm::vec4(0.0f, 0.0f, 0.0f, 1.0f), 2.0f, Sound::Once);
-                break;
-        }
+		animal_cry(state.wolf_state.disguise, wolf_to_world);
     };
 
     auto try_make_noise = [&]() -> bool {
@@ -414,7 +514,7 @@ void GameMode::update(float elapsed) {
         if (state.wolf_state.last_cry < state.CryInterval) return false;
 
         state.wolf_state.last_cry = 0.0f;
-//        make_noise();
+        make_noise();
         return true;
     };
 
@@ -497,6 +597,19 @@ void GameMode::update(float elapsed) {
 
                             glm::mat4x3 farmer_to_world = farmer_transform->make_local_to_world();
                             shot_sample->play(farmer_to_world * glm::vec4(0.0f, 0.0f, 0.0f, 1.0f), 5.0f, Sound::Once);
+				        } else if (c->recv_buffer[0] == 'j') {
+							if (c->recv_buffer.size() < 1 + sizeof(int)) return;
+
+							int animal_killed;
+							memcpy(&animal_killed, c->recv_buffer.data() + 1, sizeof(int));
+							c->recv_buffer.erase(c->recv_buffer.begin(), c->recv_buffer.begin() + 1 + sizeof(int));
+
+							glm::mat4x3 farmer_to_world = farmer_transform->make_local_to_world();
+							shot_sample->play(farmer_to_world * glm::vec4(0.0f, 0.0f, 0.0f, 1.0f), 5.0f, Sound::Once);
+
+							glm::mat4x3 animal_to_world = decoy_transforms[animal_killed]->make_local_to_world();
+							uint8_t animal_index = state.decoy_animals[animal_killed].animal;
+							animal_cry(animal_index, animal_to_world);
 				        }
 				    }
 					break;
@@ -538,6 +651,20 @@ void GameMode::update(float elapsed) {
                         } else if (c->recv_buffer[0] == 'c') {
                             c->recv_buffer.erase(c->recv_buffer.begin(), c->recv_buffer.begin() + 1);
                             make_noise();
+
+                        } else if (c->recv_buffer[0] == 'e') {
+							if (c->recv_buffer.size() < 1 + sizeof(int)) return;
+
+							int animal_killed;
+							memcpy(&animal_killed, c->recv_buffer.data() + 1, sizeof(int));
+							c->recv_buffer.erase(c->recv_buffer.begin(), c->recv_buffer.begin() + 1 + sizeof(int));
+
+							glm::mat4x3 wolf_to_world = wolf_transform->make_local_to_world();
+							snarl_sample->play(wolf_to_world * glm::vec4(0.0f, 0.0f, 0.0f, 1.0f), 10.0f, Sound::Once);
+
+							glm::mat4x3 animal_to_world = decoy_transforms[animal_killed]->make_local_to_world();
+							uint8_t animal_index = state.decoy_animals[animal_killed].animal;
+							animal_cry(animal_index, animal_to_world);
                         }
 				    }
 					break;
@@ -569,13 +696,14 @@ void GameMode::update(float elapsed) {
 	        break;
 	}
 
+	//not working
 	for (uint32_t i = 0; i < state.decoy_animals.size(); ++i) {
-		Scene::Transform *decoy_transform = decoys[i];
+		Scene::Transform *t = decoy_transforms[i];
 		Game::Decoy decoy_info = state.decoy_animals[i];
 
-		decoy_transform->position.x = decoy_info.position.x;
-		decoy_transform->position.y = decoy_info.position.y;
-		decoy_transform->scale.z = decoy_info.face_left ? decoy_transform->scale.x : -1.0f * decoy_transform->scale.x;
+		t->position.x = decoy_info.position.x;
+		t->position.y = decoy_info.position.y;
+		t->scale.z = decoy_info.face_left ? t->scale.x : -1.0f * t->scale.x;
 	}
 }
 

@@ -1,11 +1,11 @@
 # Game Information
 (Note: fill in this portion with information about your game.)
 
-Title: (TODO: your game's title)
+Title: Wolf in Sheep's Clothing
 
-Author: (TODO: your name)
+Author: Tiffany Li
 
-Design Document: [TODO: name of design document](TODO: link to design document)
+Design Document: Wolf in Sheep's Clothing (http://graphics.cs.cmu.edu/courses/15-466-f18/game2-designs/yitongl/)
 
 Screen Shot:
 
@@ -13,15 +13,22 @@ Screen Shot:
 
 How To Play:
 
-TODO: describe the controls and (if needed) goals/strategy.
+The first player to join is the wolf. The second is the farmer.
+Wolf:
+-WASD to move
+-Space to change disguises
+-Left Shift to eat nearby animals
+Farmer:
+-WASD to move
+-Space to shoot
 
 Changes From The Design Document:
 
-TODO: what did you need to add/remove/modify from the original design? Why?
+I changed the idea of the pens because I thought a free-roaming camera would be more effective. I also didn't implement the "flashbang" because I thought it was unnecessary. Attached is a key.txt to help decipher my networked messages.
 
 Good / Bad / Ugly Code:
 
-TODO: provide examples of code you wrote from this project that you think is good (elegant, simple, useful), bad (hack-y, brittle, unreadable), and ugly (particularly inelegant). Provide a sentence or two of justification for the examples.
+All the code is ugly. There are if statements everywhere and accessing members of structs within structs within structs. The cow objects also seem to have strange origins, which interferes with hit detection. Gameplay-wise, I think the responsiveness of the crosshair and the messaging of the hitmarker is effective.
 
 # Using This Base Code
 

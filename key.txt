@@ -1,15 +1,16 @@
 Client -> Server:
 ---------------------------
-Wolf:
-    w[s] - own state (position, rotation, disguise)
-    w[f] - local farmer's state (position)
-Farmer:
-    f[s] - own state (position)
-    f[w] - local wolf's state (position, rotation, disguise)
+Both:
+    h - hello
 
-Server -> Client:
-----------------------------
 Wolf:
-    [f] - actual farmer state (position)
+    w - own state (position, direction, disguise)
+    d - change disguise
+    c - periodic animal cry
+    e - wolf ate farmer's animal
+
 Farmer:
-    [w] - actual wolf state (position, rotation, disguise)
+    f - own state (position)
+    k - shot killed wolf
+    m - missed shot
+    j - shot killed farmer's animal

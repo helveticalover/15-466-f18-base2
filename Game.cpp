@@ -113,13 +113,13 @@ bool Game::update(float time) {
         }
     }
 
-    for (Decoy decoy : decoy_animals) {
-        if (decoy.position == decoy.target) continue;
-
-        glm::vec2 mv = MaxVelocity * glm::normalize(decoy.target - decoy.position);
-        decoy.face_left = mv.x <= 0;
-        decoy.position += mv;
-    }
+//    for (Decoy decoy : decoy_animals) {
+//        if (decoy.position == decoy.target) continue;
+//
+//        glm::vec2 mv = MaxVelocity * glm::normalize(decoy.target - decoy.position);
+//        decoy.face_left = mv.x <= 0;
+//        decoy.position += mv;
+//    }
 
     return updated;
 }
