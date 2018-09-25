@@ -31,7 +31,21 @@ I changed the idea of the pens because I thought a free-roaming camera would be 
 Good / Bad / Ugly Code:
 
 All the code is ugly. There are if statements everywhere and accessing members of structs within structs within structs. Gameplay-wise, I think the responsiveness of the crosshair and the messaging of the hitmarker is effective.
-I wasn't able to move the decoy animals due to referencing issues with transforms, but the code is there. I also had trouble displaying text. It either wouldn't show or be unable to find the mesh at random times.
+I wasn't able to move the decoy animals due to referencing issues with transforms, but the code is there. I also had trouble displaying text. It either wouldn't show or be unable to find the mesh at random times. Despite my best efforts, the sounds all seem to play at the origin.
+
+Attributions:
+
+https://freesound.org/people/be-steele/sounds/369577/
+
+https://freesound.org/people/esperri/sounds/118966/
+
+https://freesound.org/people/Kleeb/sounds/180961/
+
+https://freesound.org/people/felix.blume/sounds/163727/
+
+https://freesound.org/people/JarredGibb/sounds/233172/
+
+https://freesound.org/people/reinsamba/sounds/57796/
 
 # Using This Base Code
 
