@@ -7,6 +7,7 @@
 #include <map>
 
 #include "Connection.hpp"
+#include "Scene.hpp"
 
 struct Game {
     enum PlayerType { WOLFPLAYER, FARMER, SPECTATOR };
@@ -39,21 +40,30 @@ struct Game {
         float x_velocity = 0.0f;
         float y_velocity = 0.0f;
         glm::vec2 position = glm::vec2(0.0f, 0.0f);
+        glm::vec2 last_hit = glm::vec2(0.0f, 0.0f);
         uint8_t strikes = 0;
     } farmer_state;
 
-    static constexpr const float max_velocity = 0.05f;
-    static constexpr const float acceleration = 0.75f;
-    static constexpr const float deceleration = 0.75f;
-    const glm::quat left_rotation = glm::angleAxis(glm::radians(-90.0f), glm::vec3(0,0,1)) *
+    static constexpr const float CheckRadius = 1.0f;
+    static constexpr const float ShootOffset = 0.2f;
+
+    static constexpr const float MaxVelocity = 0.05f;
+    static constexpr const float Acceleration = 0.75f;
+    static constexpr const float Deceleration = 0.75f;
+    const glm::quat LeftRotation = glm::angleAxis(glm::radians(-90.0f), glm::vec3(0,0,1)) *
             glm::angleAxis(glm::radians(90.0f), glm::vec3(1,0,0));
-    const glm::quat right_rotation = glm::angleAxis(glm::radians(90.0f), glm::vec3(0,0,1)) *
+    const glm::quat RightRotation = glm::angleAxis(glm::radians(90.0f), glm::vec3(0,0,1)) *
             glm::angleAxis(glm::radians(90.0f), glm::vec3(1,0,0));
 
     struct AnimalMesh {
         GLuint mesh_start;
         GLuint mesh_count;
+        GLuint dmesh_start;
+        GLuint dmesh_count;
         glm::vec3 mesh_scale;
+        float shoot_x;
+        float shoot_y;
+        float shoot_offs;
     };
     std::vector< AnimalMesh > animal_meshes;
 

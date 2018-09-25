@@ -175,7 +175,11 @@ void Scene::draw(Scene::Camera const *camera) const {
 	glm::mat4 world_to_clip = camera->make_projection() * world_to_camera;
 
 	for (Scene::Object *object = first_object; object != nullptr; object = object->alloc_next) {
-		glm::mat4 local_to_world = shear_z * object->transform->make_local_to_world();
+		glm::mat4 local_to_world = object->transform->make_local_to_world();
+
+		if (object->transform->name != "Crosshair" && object->transform->name != "HitMarker") {
+			local_to_world = shear_z * local_to_world;
+		}
 
 		//compute modelview+projection (object space to clip space) matrix for this object:
 		glm::mat4 mvp = world_to_clip * local_to_world;
