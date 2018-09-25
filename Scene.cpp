@@ -164,12 +164,12 @@ void Scene::delete_camera(Scene::Camera *object) {
 void Scene::draw(Scene::Camera const *camera) const {
 	assert(camera && "Must have a camera to draw scene from.");
 
-    glm::mat4 shear_z = glm::mat4(
-            1.25f, 0.0f, 0.0f, 0.0f,
-            0.0f, 1.0f, 0.0f, 0.0f,
-            0.0f, 1.0f, 1.0f, 0.0f,
-            0.0f, 0.0f, 0.0f, 1.0f
-    );
+//    glm::mat4 shear_z = glm::mat4(
+//            1.25f, 0.0f, 0.0f, 0.0f,
+//            0.0f, 1.0f, 0.0f, 0.0f,
+//            0.0f, 1.0f, 1.0f, 0.0f,
+//            0.0f, 0.0f, 0.0f, 1.0f
+//    );
 
 	glm::mat4 world_to_camera = camera->transform->make_world_to_local();
 	glm::mat4 world_to_clip = camera->make_projection() * world_to_camera;
@@ -177,9 +177,9 @@ void Scene::draw(Scene::Camera const *camera) const {
 	for (Scene::Object *object = first_object; object != nullptr; object = object->alloc_next) {
 		glm::mat4 local_to_world = object->transform->make_local_to_world();
 
-		if (object->transform->name != "Crosshair" && object->transform->name != "HitMarker") {
-			local_to_world = shear_z * local_to_world;
-		}
+//		if (object->transform->name != "Crosshair" && object->transform->name != "HitMarker") {
+//			local_to_world = shear_z * local_to_world;
+//		}
 
 		//compute modelview+projection (object space to clip space) matrix for this object:
 		glm::mat4 mvp = world_to_clip * local_to_world;

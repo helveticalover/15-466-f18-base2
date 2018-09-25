@@ -99,6 +99,11 @@ int main(int argc, char **argv) {
                             wolf->send_raw("m", 1);
                             wolf->send_raw(&globalState.farmer_state.position, sizeof(glm::vec2));
                         }
+                    } else if (c->recv_buffer[0] == 'c') {
+                        c->recv_buffer.erase(c->recv_buffer.begin(), c->recv_buffer.begin() + 1);
+                        if (farmer) {
+                            farmer->send_raw("c", 1);
+                        }
                     }
 				}
 

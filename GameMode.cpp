@@ -4,6 +4,7 @@
 #include "Load.hpp"
 #include "MeshBuffer.hpp"
 #include "Scene.hpp"
+#include "Sound.hpp"
 #include "gl_errors.hpp" //helper for dumpping OpenGL error messages
 #include "read_chunk.hpp" //helper for reading a vector of structures from a file
 #include "data_path.hpp" //helper to get paths relative to executable
@@ -28,6 +29,30 @@ Load< MeshBuffer > meshes(LoadTagDefault, [](){
 
 Load< GLuint > meshes_for_vertex_color_program(LoadTagDefault, [](){
 	return new GLuint(meshes->make_vao_for_program(vertex_color_program->program));
+});
+
+Load< Sound::Sample > snarl_sample(LoadTagDefault, [](){
+    return new Sound::Sample(data_path("wolf.wav"));
+});
+
+Load< Sound::Sample > whine_sample(LoadTagDefault, [](){
+    return new Sound::Sample(data_path("whine.wav"));
+});
+
+Load< Sound::Sample > shot_sample(LoadTagDefault, [](){
+    return new Sound::Sample(data_path("shot.wav"));
+});
+
+Load< Sound::Sample > sheep_sample(LoadTagDefault, [](){
+    return new Sound::Sample(data_path("sheep.wav"));
+});
+
+Load< Sound::Sample > pig_sample(LoadTagDefault, [](){
+    return new Sound::Sample(data_path("pig.wav"));
+});
+
+Load< Sound::Sample > cow_sample(LoadTagDefault, [](){
+    return new Sound::Sample(data_path("cow.wav"));
 });
 
 Scene::Transform *player_transform = nullptr;   // parent transform for player mesh and camera
@@ -117,18 +142,14 @@ Load< Scene > scene(LoadTagDefault, [](){
 	cow.dmesh_count = dcow_mesh.count;
 
 	// For hit detection
-	wolf.shoot_x = 0.7f;
-	wolf.shoot_y = 0.4f;
-	wolf.shoot_offs = 0.25f;
-	sheep.shoot_x = 0.5f;
-	sheep.shoot_y = 0.3f;
-	sheep.shoot_offs = 0.2f;
+	wolf.shoot_x = 0.5f;
+	wolf.shoot_y = 0.3f;
+	sheep.shoot_x = 0.4f;
+	sheep.shoot_y = 0.2f;
 	pig.shoot_x = 0.6f;
 	pig.shoot_y = 0.4f;
-	pig.shoot_offs = 0.25f;
 	cow.shoot_x = 0.8f;
 	cow.shoot_y = 0.5f;
-	cow.shoot_offs = 0.3f;
 
 	//look up the camera:
 	for (Scene::Camera *c = ret->first_camera; c != nullptr; c = c->alloc_next) {
@@ -227,17 +248,18 @@ bool GameMode::handle_event(SDL_Event const &evt, glm::uvec2 const &window_size)
 	}
 
 	auto try_shoot = [&]() -> Scene::Object * {
+	    if (state.player != Game::PlayerType::FARMER) return nullptr;
+
 		state.farmer_state.last_hit = state.farmer_state.position;
 		glm::vec2 hit_center = state.farmer_state.position;
 		float x_dist = state.animal_meshes[state.wolf_state.disguise].shoot_x;
 		float y_dist = state.animal_meshes[state.wolf_state.disguise].shoot_y;
-		float offset = state.animal_meshes[state.wolf_state.disguise].shoot_offs;
 
 		if (glm::abs(state.wolf_state.position.x - hit_center.x) <= x_dist &&
-			glm::abs(state.wolf_state.position.y + offset - hit_center.y) <= y_dist) {
+			glm::abs(state.wolf_state.position.y - hit_center.y) <= y_dist) {
 
             hitmarker->transform->position.x = state.wolf_state.position.x;
-            hitmarker->transform->position.y = state.wolf_state.position.y + offset;
+            hitmarker->transform->position.y = state.wolf_state.position.y;
 
 			return wolfplayer_object;
 		}
@@ -301,7 +323,13 @@ bool GameMode::handle_event(SDL_Event const &evt, glm::uvec2 const &window_size)
             }
 
             if (evt.type == SDL_KEYDOWN && evt.key.keysym.scancode == SDL_SCANCODE_SPACE) {
+
+                glm::mat4x3 farmer_to_world = camera->transform->make_local_to_world();
+                shot_sample->play(farmer_to_world * glm::vec4(0.0f, 0.0f, 0.0f, 1.0f), 5.0f, Sound::Once);
+
                 if (try_shoot()) {
+					glm::mat4x3 wolf_to_world = wolf_transform->make_local_to_world();
+					whine_sample->play(wolf_to_world * glm::vec4(0.0f, 0.0f, 0.0f, 1.0f), 2.0f, Sound::Once);
                     client.connection.send_raw("k", 1);
                 } else {
                     client.connection.send_raw("m", 1);
@@ -318,7 +346,38 @@ bool GameMode::handle_event(SDL_Event const &evt, glm::uvec2 const &window_size)
 }
 
 void GameMode::update(float elapsed) {
+
+    auto make_noise = [&]() {
+        glm::mat4x3 wolf_to_world = wolf_transform->make_local_to_world();
+        switch(state.wolf_state.disguise) {
+            case 0:
+                snarl_sample->play(wolf_to_world * glm::vec4(0.0f, 0.0f, 0.0f, 1.0f), 2.0f, Sound::Once);
+                break;
+            case 1:
+                sheep_sample->play(wolf_to_world * glm::vec4(0.0f, 0.0f, 0.0f, 1.0f), 2.0f, Sound::Once);
+                break;
+            case 2:
+                pig_sample->play(wolf_to_world * glm::vec4(0.0f, 0.0f, 0.0f, 1.0f), 2.0f, Sound::Once);
+                break;
+            case 3:
+                cow_sample->play(wolf_to_world * glm::vec4(0.0f, 0.0f, 0.0f, 1.0f), 2.0f, Sound::Once);
+                break;
+        }
+    };
+
+    auto try_make_noise = [&]() -> bool {
+        if (state.player != Game::PlayerType::WOLFPLAYER) return false;
+
+        state.wolf_state.last_cry += elapsed;
+        if (state.wolf_state.last_cry < state.CryInterval) return false;
+
+        state.wolf_state.last_cry = 0.0f;
+//        make_noise();
+        return true;
+    };
+
 	bool update = state.update(elapsed);
+	bool cry = try_make_noise();
 
 	if (client.connection) {
 		//send own game state and predicted game state to server:
@@ -329,6 +388,8 @@ void GameMode::update(float elapsed) {
 					client.connection.send_raw(&state.wolf_state.position, sizeof(glm::vec2));
 					client.connection.send_raw(&state.wolf_state.face_left, sizeof(bool));
         		}
+
+        		if (cry) client.connection.send_raw("c", 1);
 				break;
         	case Game::PlayerType::FARMER:			// FARMER
         	    if (update) {	// ------------------- send actual farmer state
@@ -362,6 +423,11 @@ void GameMode::update(float elapsed) {
                             hitmarker->transform->position.x = state.wolf_state.position.x;
                             hitmarker->transform->position.y = state.wolf_state.position.y;
 
+                            glm::mat4x3 farmer_to_world = farmer_transform->make_local_to_world();
+                            shot_sample->play(farmer_to_world * glm::vec4(0.0f, 0.0f, 0.0f, 1.0f), 5.0f, Sound::Once);
+                            glm::mat4x3 wolf_to_world = camera->transform->make_local_to_world();
+                            whine_sample->play(wolf_to_world * glm::vec4(0.0f, 0.0f, 0.0f, 1.0f), 2.0f, Sound::Once);
+
 				            std::cout << "You've been killed!" << std::endl;
 				        } else if (c->recv_buffer[0] == 'm') {
 							if (c->recv_buffer.size() < 1 + sizeof(glm::vec2)) break;
@@ -371,6 +437,9 @@ void GameMode::update(float elapsed) {
 
 							hitmarker->transform->position.x = state.farmer_state.last_hit.x;
 							hitmarker->transform->position.y = state.farmer_state.last_hit.y;
+
+                            glm::mat4x3 farmer_to_world = farmer_transform->make_local_to_world();
+                            shot_sample->play(farmer_to_world * glm::vec4(0.0f, 0.0f, 0.0f, 1.0f), 5.0f, Sound::Once);
 				        }
 				    }
 					break;
@@ -384,8 +453,8 @@ void GameMode::update(float elapsed) {
                                                  c->recv_buffer.begin() + 1 + sizeof(glm::vec2));
                             memcpy(&state.wolf_state.face_left, c->recv_buffer.data(), sizeof(bool));
                             c->recv_buffer.erase(c->recv_buffer.begin(), c->recv_buffer.begin() + sizeof(bool));
-                        } else if (c->recv_buffer[0] == 'd') {  // disguise
 
+                        } else if (c->recv_buffer[0] == 'd') {  // disguise
                             if (c->recv_buffer.size() < 1 + sizeof(glm::uint8_t)) break;
 
                             memcpy(&state.wolf_state.disguise, c->recv_buffer.data() + 1, sizeof(uint8_t));
@@ -395,6 +464,10 @@ void GameMode::update(float elapsed) {
                             wolfplayer_object->start = mesh_info.mesh_start;
                             wolfplayer_object->count = mesh_info.mesh_count;
                             wolfplayer_object->transform->scale = mesh_info.mesh_scale;
+
+                        } else if (c->recv_buffer[0] == 'c') {
+                            c->recv_buffer.erase(c->recv_buffer.begin(), c->recv_buffer.begin() + 1);
+                            make_noise();
                         }
 				    }
 					break;
@@ -409,7 +482,7 @@ void GameMode::update(float elapsed) {
 	    case Game::PlayerType::WOLFPLAYER:
 	        player_transform->position.x = state.wolf_state.position.x;
 	        player_transform->position.y = state.wolf_state.position.y;
-	        wolf_transform->rotation = state.wolf_state.face_left ? state.LeftRotation : state.RightRotation;
+	        wolf_transform->scale.z = state.wolf_state.face_left ? wolf_transform->scale.x : -1.0f * wolf_transform->scale.x;
 
             farmer_transform->position.x = state.farmer_state.position.x;
             farmer_transform->position.y = state.farmer_state.position.y;
@@ -420,7 +493,7 @@ void GameMode::update(float elapsed) {
 
             wolf_transform->position.x = state.wolf_state.position.x;
             wolf_transform->position.y = state.wolf_state.position.y;
-            wolf_transform->rotation = state.wolf_state.face_left ? state.LeftRotation : state.RightRotation;
+            wolf_transform->scale.z = state.wolf_state.face_left ? wolf_transform->scale.x : -1.0f * wolf_transform->scale.x;
 	        break;
 	    default:
 	        break;

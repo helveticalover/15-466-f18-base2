@@ -55,6 +55,9 @@ bool Game::update(float time) {
 
         if (mv != glm::vec2(0.0f, 0.0f)) {
             wolf_state.position += mv;
+
+            wolf_state.position.x = glm::clamp(wolf_state.position.x, -PenLimit, PenLimit);
+            wolf_state.position.y = glm::clamp(wolf_state.position.y, -PenLimit, PenLimit);
             return true;
         }
     }
@@ -101,6 +104,9 @@ bool Game::update(float time) {
 
         if (mv != glm::vec2(0.0f, 0.0f)) {
             farmer_state.position += mv;
+
+            farmer_state.position.x = glm::clamp(farmer_state.position.x, -PenLimit, PenLimit);
+            farmer_state.position.y = glm::clamp(farmer_state.position.y, -PenLimit, PenLimit);
             return true;
         }
     }
