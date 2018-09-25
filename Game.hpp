@@ -51,8 +51,8 @@ struct Game {
     static constexpr const float Acceleration = 0.75f;
     static constexpr const float Deceleration = 0.75f;
     static constexpr const float PenLimit = 7.25f;
-    static constexpr const float EatOffset = 1.5f;
-    static constexpr const float EatRange = 1.0f;
+    static constexpr const float EatOffset = 0.5f;
+    static constexpr const float EatRange = 0.7f;
 
     struct AnimalMesh {
         GLuint mesh_start;
@@ -76,14 +76,11 @@ struct Game {
         uint8_t animal;
     };
     std::vector< Decoy > decoy_animals;
-    uint32_t num_decoys = 35;
+    uint32_t num_decoys = 32;
     int target = -1;
 
 	bool update(float time);
 
 	static constexpr const float FrameWidth = 10.0f;
 	static constexpr const float FrameHeight = 8.0f;
-	static constexpr const float PaddleWidth = 2.0f;
-	static constexpr const float PaddleHeight = 0.4f;
-	static constexpr const float BallRadius = 0.5f;
 };

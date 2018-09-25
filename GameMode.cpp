@@ -122,7 +122,10 @@ Load< Scene > scene(LoadTagDefault, [](){
 			cow.mesh_scale = t->scale;
 		}
 
-        if (std::regex_match(t->name, sheepr) || std::regex_match(t->name, pigr) || std::regex_match(t->name, cowr)) {
+        if ((std::regex_match(t->name, sheepr) || std::regex_match(t->name, pigr) || std::regex_match(t->name, cowr)) &&
+            !(t->name == "SheepDisguise" || t->name == "PigDisguise" || t->name == "CowDisguise" ||
+            t->name == "SheepHighlight" || t->name == "PigHighlight" || t->name == "CowHighlight" ||
+            t->name == "WolfHighlight")) {
             decoy_transforms.emplace_back(t);
         }
 	}
@@ -174,7 +177,7 @@ Load< Scene > scene(LoadTagDefault, [](){
 	pig.shoot_y = 0.4f;
 	cow.shoot_x = 0.8f;
 	cow.shoot_y = 0.4f;
-	cow.y_offset = 0.4f;
+	cow.y_offset = 0.0f;
 
 	//look up the camera:
 	for (Scene::Camera *c = ret->first_camera; c != nullptr; c = c->alloc_next) {
@@ -200,13 +203,14 @@ GameMode::GameMode(Client &client_) : client(client_) {
     std::regex sheepr ("(Sheep.)(.*)");
     std::regex pigr ("(Pig.)(.*)");
     std::regex cowr ("(Cow.)(.*)");
-    for (uint32_t i = 0; i < 35; ++i) {
+
+    for (uint32_t i = 0; i < state.num_decoys; ++i) {
         Game::Decoy d;
         d.position = glm::vec2(decoy_transforms[i]->position.x, decoy_transforms[i]->position.y);
         d.target = d.position;
 
-        float r = rand() / RAND_MAX;
-        d.face_left = r <= 0.5f;
+//        float r = rand() / RAND_MAX;
+//        d.face_left = r <= 0.5f;
 
         if (std::regex_match(decoy_transforms[i]->name, sheepr)) {
             d.animal = 1;
@@ -363,10 +367,8 @@ bool GameMode::handle_event(SDL_Event const &evt, glm::uvec2 const &window_size)
 		float y_max = state.wolf_state.position.y + state.EatRange;
 
 		for (uint32_t i = 0; i < state.num_decoys; ++i) {
-		    float offset = state.animal_meshes[state.decoy_animals[i].animal].y_offset;
-
 			if (x_min <= state.decoy_animals[i].position.x && state.decoy_animals[i].position.x <= x_max &&
-				y_min <= state.decoy_animals[i].position.y + offset && state.decoy_animals[i].position.y + offset <= y_max) {
+				y_min <= state.decoy_animals[i].position.y && state.decoy_animals[i].position.y <= y_max) {
 				return (int)i;
 			}
 		}
@@ -422,7 +424,7 @@ bool GameMode::handle_event(SDL_Event const &evt, glm::uvec2 const &window_size)
 
 					++state.wolf_state.num_eaten;
 
-					std::cout << "Ate animal " + std::to_string(state.target) << std::endl;
+					std::cout << "Ate animal " + decoy_transforms[state.target]->name << std::endl;
 					client.connection.send_raw("e", 1);
 					client.connection.send_raw(&state.target, sizeof(int));
 			    }
@@ -466,7 +468,7 @@ bool GameMode::handle_event(SDL_Event const &evt, glm::uvec2 const &window_size)
 
                     ++state.farmer_state.strikes;
 
-					std::cout << "Shot animal " + std::to_string(state.target) << std::endl;
+					std::cout << "Shot animal " + decoy_transforms[state.target]->name << std::endl;
 					client.connection.send_raw("j", 1);
 					client.connection.send_raw(&state.target, sizeof(int));
                 } else {
@@ -696,7 +698,7 @@ void GameMode::update(float elapsed) {
 	        break;
 	}
 
-	//not working
+	//transform references not working
 	for (uint32_t i = 0; i < state.decoy_animals.size(); ++i) {
 		Scene::Transform *t = decoy_transforms[i];
 		Game::Decoy decoy_info = state.decoy_animals[i];
@@ -705,6 +707,26 @@ void GameMode::update(float elapsed) {
 		t->position.y = decoy_info.position.y;
 		t->scale.z = decoy_info.face_left ? t->scale.x : -1.0f * t->scale.x;
 	}
+
+	// Draw text
+//    float height = 1.0f;
+//    GLint viewport[4];
+//    glGetIntegerv(GL_VIEWPORT, viewport);
+////    float aspect = viewport[2] / float(viewport[3]);
+//    std::string HUD;
+//
+//    switch(state.player) {
+//	    case Game::PlayerType::WOLFPLAYER:
+//	        HUD = "ANIMALS EATEN " + state.wolf_state.num_eaten;
+//            draw_text(HUD, glm::vec2(0.0f, 0.0f), height, glm::vec4(1.0f, 1.0f, 1.0f, 1.0f));
+//	        break;
+//	    case Game::PlayerType::FARMER:
+//            HUD = "STRIKES " + state.farmer_state.strikes;
+//            draw_text(HUD, glm::vec2(0.0f, 0.0f), height, glm::vec4(1.0f, 1.0f, 1.0f, 1.0f));
+//	        break;
+//        default:
+//            break;
+//	}
 }
 
 void GameMode::draw(glm::uvec2 const &drawable_size) {

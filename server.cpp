@@ -35,9 +35,14 @@ int main(int argc, char **argv) {
                 if (!wolf) {
 					wolf = c;
 					wolf->send_raw("w", 1);
+                    wolf->send_raw("f", 1);
+                    wolf->send_raw(&globalState.farmer_state.position, sizeof(glm::vec2));
 				} else if (!farmer) {
 					farmer = c;
 					farmer->send_raw("f", 1);
+                    farmer->send_raw("w", 1);
+                    farmer->send_raw(&globalState.wolf_state.position, sizeof(glm::vec2));
+                    farmer->send_raw(&globalState.wolf_state.face_left, sizeof(bool));
 				} else {
 					spectators.emplace_back(c);
 					c->send_raw("s", 1);
@@ -129,7 +134,6 @@ int main(int argc, char **argv) {
                         }
                     }
 				}
-
 			}
 		}, 0.01);
 

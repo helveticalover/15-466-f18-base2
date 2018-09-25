@@ -28,7 +28,8 @@ I changed the idea of the pens because I thought a free-roaming camera would be 
 
 Good / Bad / Ugly Code:
 
-All the code is ugly. There are if statements everywhere and accessing members of structs within structs within structs. The cow objects also seem to have strange origins, which interferes with hit detection. Gameplay-wise, I think the responsiveness of the crosshair and the messaging of the hitmarker is effective.
+All the code is ugly. There are if statements everywhere and accessing members of structs within structs within structs. Gameplay-wise, I think the responsiveness of the crosshair and the messaging of the hitmarker is effective.
+I wasn't able to move the decoy animals due to referencing issues with transforms, but the code is there. I also had trouble displaying text. It either wouldn't show or be unable to find the mesh at random times.
 
 # Using This Base Code
 
